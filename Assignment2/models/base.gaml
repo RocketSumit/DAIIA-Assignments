@@ -77,6 +77,10 @@ species Participant skills: [moving, fipa] {
 		moving <- true;
 	}
 
+	// change interest in auction
+	reflex joinAuction when: (mod(time, 10000) = 0) {
+		attend_auction <- flip(0.5);
+	}
 	// Move to auction point.
 	reflex moveToAuctionPoint when: auction_point != nil {
 		do goto target: auction_point speed: move_speed;
@@ -95,29 +99,25 @@ species Participant skills: [moving, fipa] {
 	reflex receive_inform_messages when: !empty(informs) {
 		message informationFromInitiator <- informs[0];
 		write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
-		if (attend_auction) {
-			write '\t' + name + ' accept the invitation.\n';
-			auction_point <- agent(informationFromInitiator.sender).location;
-			random_point <- nil;
+		if (informationFromInitiator.contents[0] = 'Auction terminates.') {
+			write '\t' + name + ' leaves auction.';
+			auction_point <- nil;
+			moving <- false;
+			at_auction <- false;
 		} else {
-			write '\t' + name + ' refuse the invitation.\n';
+			if (attend_auction) {
+				write '\t' + name + ' accept the invitation.\n';
+				do inform with: [message:: informationFromInitiator, contents::['I will join.']];
+				auction_point <- agent(informationFromInitiator.sender).location;
+				random_point <- nil;
+			} else {
+				write '\t' + name + ' refuse the invitation.\n';
+				do inform with: [message:: informationFromInitiator, contents::['I am not interested.']];
+			}
+
 		}
 
 	}
-
-	//	reflex reply_messages when: !empty(requests) {
-	//		message requestFromInitiator <- requests[0];
-	//		write '(Time ' + time + '): ' + name + ' receives a invitation from ' + agent(requestFromInitiator.sender).name + ' with content ' + requestFromInitiator.contents;
-	//		if (go_to_auction = true) {
-	//			write '\t' + name + ' sends a agree message to ' + agent(requestFromInitiator.sender).name;
-	//			do agree with: [message:: requestFromInitiator, contents::['Ok, will join auction.']];
-	//			auction_point <- agent(requestFromInitiator.sender).location;
-	//		} else {
-	//			write '\t' + name + ' sends a refuse message to ' + agent(requestFromInitiator.sender).name;
-	//			do refuse with: [message:: requestFromInitiator, contents::['Not interested.']];
-	//		}
-	//
-	//	}
 
 	// Display character of the guest.
 	image_file my_icon <- image_file("../includes/icons/guest.png");
@@ -134,18 +134,50 @@ species Initiator skills: [fipa] {
 	int price <- 4250; // starting price to sell
 	int min_participants <- 3;
 	bool start_auction <- false;
+	int total_accepts <- 0;
+	int price_cut <- 500;
 	message msg <- nil;
-
-	// Display character of the guest.
+	list<Participant> buyers <- [];
+	// icon varibles
 	image_file my_icon <- image_file("../includes/icons/auctioneer.png");
 	float icon_size <- 2 #m;
 	int icon_status <- 0;
 
-	reflex informParticipantsAuction when: (time = 1) {
+	reflex informParticipantsAuction when: (mod(time, 9000) = 0) {
 		write '(Time ' + time + '): ' + name + ' sends a invitation to all Participants';
-		do start_conversation with: [to::list(Participant), protocol::'fipa-contract-net', performative::'inform', contents::['Signed T-shirts for sale through Dutch-Auction.']];
+		do start_conversation with: [to::list(Participant), protocol::'fipa-contract-net', performative::'inform', contents::['Auction invitation.', 'T-shirts']];
 	}
 
+	reflex receive_inform_messages when: !empty(informs) {
+		write '(Time ' + time + '): ' + name + ' receives inform messages';
+		loop i over: informs {
+			write '\t' + name + ' receives a inform message from ' + agent(i.sender).name + ' with content ' + i.contents;
+			if (i.contents[0] = 'I will join.') {
+				buyers <+ Participant(agent(i.sender));
+				total_accepts <- total_accepts + 1;
+			}
+
+		}
+
+		if (total_accepts > min_participants) {
+			write '(Time ' + time + '): ' + name + ' will begin auction shortly.\n';
+			start_auction <- true;
+			do start_conversation with: [to::list(buyers), protocol::'fipa-contract-net', performative::'cfp', contents::['T-shirts', '5750']];
+		} else {
+			write '(Time ' + time + '): ' + name + ' terminates auction becaues of less participants.\n';
+			do start_conversation with: [to::list(buyers), protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.']];
+			start_auction <- false;
+			total_accepts <- 0;
+			buyers <- [];
+		}
+
+	}
+
+	//	reflex send_new_cfp_to_participants when: empty(proposes) {
+	//		write '(Time ' + time + '): ' + name + ' sends a cfp message to all participants';
+	//	}
+
+	// Display character of the guest.
 	aspect range {
 		draw circle(12) color: #orange border: #black;
 	}
