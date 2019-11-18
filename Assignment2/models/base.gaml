@@ -79,9 +79,9 @@ species Participant skills: [moving, fipa] {
 	}
 
 	// change interest in auction
-	//	reflex joinAuction when: (mod(time, 100000) = 0) {
-	//		attend_auction <- flip(0.6);
-	//	}
+	reflex joinAuction when: (mod(time, 100000) = 1) {
+		attend_auction <- flip(0.6);
+	}
 	// Move to auction point.
 	reflex moveToAuctionPoint when: auction_point != nil {
 		do goto target: auction_point speed: move_speed;
