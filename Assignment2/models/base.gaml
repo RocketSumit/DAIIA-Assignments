@@ -54,7 +54,7 @@ species Participant skills: [moving, fipa] {
 	int resting_cycles <- 5000;
 
 	// Auction variables
-	int wealth <- rnd(3000, 10000);
+	int wealth <- rnd(2000, 4000);
 	bool attend_auction <- flip(0.5);
 	bool at_auction <- false;
 	bool informed <- false;
@@ -80,7 +80,7 @@ species Participant skills: [moving, fipa] {
 
 	// change interest in auction
 	reflex joinAuction when: (mod(time, 10000) = 0) {
-		attend_auction <- flip(0.5);
+		attend_auction <- flip(0.6);
 	}
 	// Move to auction point.
 	reflex moveToAuctionPoint when: auction_point != nil {
@@ -134,7 +134,7 @@ species Participant skills: [moving, fipa] {
 			do refuse with: [message:: proposalFromInitiator, contents::['I am willing to buy for', wealth]];
 		} else {
 			write '\t' + name + ' sends a propose message to ' + agent(proposalFromInitiator.sender).name;
-			do propose with: [message:: proposalFromInitiator, contents::['Cool. I will buy for', proposed_price]];
+			do propose with: [message:: proposalFromInitiator, contents::['Cool. I will buy for', proposed_price, 'I have ', wealth]];
 		}
 
 	}
@@ -174,7 +174,7 @@ species Initiator skills: [fipa] {
 	bool no_bid <- false;
 	int attenders <- 0;
 
-	reflex informParticipantsAuction when: (time = 5000) {
+	reflex informParticipantsAuction when: (time = 0) {
 		write '(Time ' + time + '): ' + name + ' sends a invitation to all Participants';
 		do start_conversation with: [to::list(Participant), protocol::'fipa-contract-net', performative::'inform', contents::['Auction invitation.', 'T-shirts']];
 	}
@@ -213,20 +213,21 @@ species Initiator skills: [fipa] {
 	}
 
 	reflex receive_refuse_messages when: !empty(refuses) {
+		if (length(refuses) = length(buyers)) {
+			no_bid <- true;
+			write '\n(Time ' + time + '):' + 'No one is willing to buy.';
+		}
+
 		write '(Time ' + time + '): ' + name + ' receives refuse messages';
 		loop r over: refuses {
 			write '\t' + name + ' receives a refuse message from ' + agent(r.sender).name + ' with content ' + r.contents;
-		}
-
-		if (length(refuses) = length(buyers)) {
-			no_bid <- true;
 		}
 
 	}
 
 	reflex receive_propose_messages when: !empty(proposes) {
 		message first_proposal <- proposes[0];
-		write '(Time ' + time + '): ' + name + ' receives propose messages';
+		write '\n(Time ' + time + '): ' + name + ' receives propose messages';
 		write '\t' + name + ' receives a propose message from ' + agent(first_proposal.sender).name + ' with content ' + first_proposal.contents;
 		write '\t' + name + ' sends a accept_proposal message to ' + first_proposal.sender;
 		do accept_proposal with: [message:: first_proposal, contents::['Take the item.']];
