@@ -55,6 +55,7 @@ species Participant skills: [moving, fipa] {
 	bool informed_attendance <- false;
 	Initiator auctioneer <- nil;
 	int genre_interested_in <- rnd(1, 2); // 1: T-shirts, 2: CD's
+	list<string> items_bought <- nil;
 
 	// Explore the fest.
 	reflex setrandomPoint when: mod(cycle, resting_cycles) = 0 and !moving and !at_auction {
@@ -143,7 +144,7 @@ species Participant skills: [moving, fipa] {
 			do refuse with: [message:: proposalFromInitiator, contents::['I am willing to buy for', wallet_money]];
 		} else {
 			write '\t' + name + ' sends a propose message to ' + agent(proposalFromInitiator.sender).name;
-			do propose with: [message:: proposalFromInitiator, contents::['Cool. I will buy for', proposed_price, 'I have ', wallet_money]];
+			do propose with: [message:: proposalFromInitiator, contents::['I will buy ', proposalFromInitiator.contents[0], proposed_price, 'I have ', wallet_money]];
 		}
 
 	}
@@ -159,6 +160,7 @@ species Participant skills: [moving, fipa] {
 		message a <- accept_proposals[0];
 		//write '(Time ' + time + '): ' + name + ' receives a accept_proposal message from ' + agent(a.sender).name + ' with content ' + a.contents;
 		wallet_money <- wallet_money - int(a.contents[1]); // Update wallet money after buying
+		items_bought <+ string(a.contents[0]) + ' for ' + string(a.contents[1]);
 	}
 
 	// Display character of the guest.
@@ -179,7 +181,7 @@ species Initiator skills: [fipa] {
 	int item_initial_price <- 0; // starting price to sell
 	int current_price <- 0;
 	int reserved_price <- 0; // will not go below this price
-	int min_participants <- 3;
+	int min_participants <- 2;
 	bool start_auction <- false; // indicator if auction is started
 	int price_cut <- 0;
 	bool no_bid <- false;
@@ -203,7 +205,7 @@ species Initiator skills: [fipa] {
 		}
 		// sell CD's
 else {
-			item_for_sale <- 'CD\'s';
+			item_for_sale <- 'CDs';
 			item_initial_price <- 999;
 			reserved_price <- 299;
 			price_cut <- rnd(30, 100);
@@ -286,7 +288,7 @@ else {
 		write '\n(Time ' + time + '): ' + name + ' receives propose messages';
 		write '\t' + name + ' receives a propose message from ' + agent(first_proposal.sender).name + ' with content ' + first_proposal.contents;
 		write '\t' + name + ' sends a accept_proposal message to ' + first_proposal.sender;
-		do accept_proposal with: [message:: first_proposal, contents::['Take the item for.', first_proposal.contents[1]]];
+		do accept_proposal with: [message:: first_proposal, contents::[first_proposal.contents[1], first_proposal.contents[2]]];
 
 		// Rejects all the remaining proposals
 		loop p over: proposes {
@@ -298,7 +300,7 @@ else {
 		// Item is sold, hence terminate auction.
 		write '\n(Time ' + time + '): ' + name + ' terminates auction.';
 		do start_conversation with:
-		[to::list(buyers), protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', agent(first_proposal.sender).name + ' buys the item.']];
+		[to::list(buyers), protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', agent(first_proposal.sender).name + ' buys the ' + first_proposal.contents[1]]];
 		start_auction <- false;
 		buyers <- [];
 		attenders <- 0;
@@ -346,7 +348,7 @@ experiment challenge1 type: gui {
 		}
 
 		// Inspect the wallet money of agents live
-		inspect "Wallet money" value: Participant attributes: ["wallet_money"];
+		inspect "Auction spendings" value: Participant attributes: ["wallet_money", "items_bought"];
 	}
 
 }
