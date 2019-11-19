@@ -53,7 +53,7 @@ species Participant skills: [moving, fipa] {
 	bool attend_auction <- flip(0.6);
 	bool at_auction <- false;
 	bool informed_presense <- false;
-
+	Initiator auctioneer <- nil;
 	// Explore the fest.
 	reflex setrandomPoint when: mod(cycle, resting_cycles) = 0 and !moving and !at_auction {
 		write '(Time ' + time + '): ' + name + ' got new random point.';
@@ -101,10 +101,12 @@ species Participant skills: [moving, fipa] {
 			moving <- false;
 			at_auction <- false;
 			informed_presense <- false;
+			auctioneer <- nil;
 		} else {
 			if (attend_auction) { // if interested then attend auction.
 				write '\t' + name + ' accept the invitation.\n';
 				do inform with: [message:: informationFromInitiator, contents::['I will join.']];
+				auctioneer <- Initiator(informationFromInitiator.sender);
 				auction_point <- agent(informationFromInitiator.sender).location;
 				random_point <- nil;
 			} else { // if not interested then refuse to participate.
@@ -118,7 +120,7 @@ species Participant skills: [moving, fipa] {
 
 	// Inform the initiator about self presence at auction once.
 	reflex inform_auctioneer_to_begin when: at_auction and !informed_presense {
-		do start_conversation with: [to::list(Initiator), protocol::'fipa-contract-net', performative::'inform', contents::['I am here.']];
+		do start_conversation with: [to::list(auctioneer), protocol::'fipa-contract-net', performative::'inform', contents::['I am here.']];
 		informed_presense <- true;
 	}
 
@@ -300,10 +302,10 @@ species Initiator skills: [fipa] {
 }
 
 // Experiment.
-experiment festival type: gui {
+experiment base type: gui {
 	output {
 	// Display map.
-		display myDisplay type: opengl {
+		display base type: opengl {
 			species Initiator aspect: range;
 			species Initiator aspect: icon;
 			species Participant aspect: icon;
