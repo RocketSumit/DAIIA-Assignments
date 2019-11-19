@@ -16,7 +16,7 @@ global {
 	int nb_guests <- 10;
 
 	//globals for Initiator
-	int nb_initiator <- 1;
+	int nb_initiator <- 2;
 	list<point> initiators_locs <- [];
 
 	init {
@@ -52,7 +52,7 @@ species Participant skills: [moving, fipa] {
 	int wallet_money <- rnd(2000, 4000);
 	bool attend_auction <- flip(0.5);
 	bool at_auction <- false;
-	bool informed_presense <- false;
+	bool informed_attendance <- false;
 	Initiator auctioneer <- nil;
 	int genre_interested_in <- rnd(1, 2); // 1: T-shirts, 2: CD's
 
@@ -96,24 +96,31 @@ species Participant skills: [moving, fipa] {
 	// Read inform msgs from initiator.
 	reflex receive_inform_messages when: !empty(informs) {
 		message informationFromInitiator <- informs[0];
-		write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
+
+		// Reset parameters when auction terminates
 		if (informationFromInitiator.contents[0] = 'Auction terminates.') {
+			write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
 			write '\t' + name + ' leaves auction.';
 			auction_point <- nil;
 			moving <- false;
 			at_auction <- false;
-			informed_presense <- false;
+			informed_attendance <- false;
 			auctioneer <- nil;
-		} else {
-			if (attend_auction and genre_interested_in = informationFromInitiator.contents[2]) { // if interested then attend auction.
-				write '\t' + name + ' accept the invitation.\n';
-				do inform with: [message:: informationFromInitiator, contents::['I will join.']];
-				auctioneer <- Initiator(informationFromInitiator.sender);
-				auction_point <- agent(informationFromInitiator.sender).location;
-				random_point <- nil;
-			} else { // if not interested then refuse to participate.
-				write '\t' + name + ' refuse the invitation.\n';
-				do inform with: [message:: informationFromInitiator, contents::['I am not interested.']];
+		} else { // Join only one auction at a time
+			if (auctioneer = nil) {
+				write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
+				if (attend_auction and genre_interested_in = informationFromInitiator.contents[2]) { // if interested then attend auction.
+					write '\t' + name + ' accept the invitation from ' + Initiator(informationFromInitiator.sender) + '.\n';
+					do inform with: [message:: informationFromInitiator, contents::['I will join.']];
+					auctioneer <- Initiator(informationFromInitiator.sender);
+					auction_point <- agent(informationFromInitiator.sender).location;
+					random_point <- nil;
+				} else { // if not interested then refuse to participate.
+					write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
+					write '\t' + name + ' refuse the invitation.\n';
+					do inform with: [message:: informationFromInitiator, contents::['I am not interested.']];
+				}
+
 			}
 
 		}
@@ -121,9 +128,9 @@ species Participant skills: [moving, fipa] {
 	}
 
 	// Inform the initiator about self presence at auction once.
-	reflex inform_auctioneer_to_begin when: at_auction and !informed_presense {
-		do start_conversation with: [to::list(Initiator), protocol::'fipa-contract-net', performative::'inform', contents::['I am here.']];
-		informed_presense <- true;
+	reflex inform_auctioneer_to_begin when: at_auction and !informed_attendance {
+		do start_conversation with: [to::list(auctioneer), protocol::'fipa-contract-net', performative::'inform', contents::['I am here.']];
+		informed_attendance <- true;
 	}
 
 	// Read call for proposals from initiator.
@@ -236,10 +243,14 @@ else {
 		} else {
 
 		// End auction if less number of participants.
-			write '(Time ' + time + '): ' + name + ' terminates auction becaues of less participants.\n';
-			do start_conversation with: [to::list(buyers), protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', 'less number of participants']];
-			start_auction <- false;
-			buyers <- [];
+			if (!empty(buyers)) {
+			//write 'informs: ' + informs;
+				write '(Time ' + time + '): ' + name + ' terminates auction becaues of less participants.\n';
+				do start_conversation with: [to::list(buyers), protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', 'less number of participants']];
+				start_auction <- false;
+				buyers <- [];
+			}
+
 		}
 
 	}
@@ -315,7 +326,7 @@ else {
 
 	// Display character of the guest.
 	aspect range {
-		draw circle(12) color: #orange border: #black;
+		draw circle(12) color: rgb(93, 138, 233, 100);
 	}
 
 	aspect icon {
