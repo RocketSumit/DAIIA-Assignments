@@ -604,30 +604,8 @@ species Initiator skills: [fipa] {
 // Experiment.
 experiment challenge2 type: gui {
 	output {
-		display chart1 refresh: every(100 #cycles) {
-			chart "Avg price of items for guests." type: histogram {
-				data 'T-shirt avg price dutch' value: avg_price_items_dutch[0];
-				data 'T-shirt avg price english' value: avg_price_items_english[0];
-				data 'T-shirt avg price sealed-bid' value: avg_price_items_sealed[0];
-				data 'CDs avg price dutch' value: avg_price_items_dutch[1];
-				data 'CDs avg price english' value: avg_price_items_english[1];
-				data 'CDs avg price sealed-bid' value: avg_price_items_sealed[1];
-			}
 
-		}
-
-		display chart2 refresh: every(100 #cycles) {
-			chart "Profits for auctioneer." type: histogram {
-				data 'T-shirt dutch' value: profits_dutch[0];
-				data 'T-shirt english' value: profits_english[0];
-				data 'T-shirt sealed-bid' value: profits_sealed[0];
-				data 'CDs dutch' value: profits_dutch[1];
-				data 'CDs english' value: profits_english[1];
-				data 'CDs sealed-bid' value: profits_sealed[1];
-			}
-
-		}
-		// Display map.
+	// Display map.
 		display challenge2 type: opengl {
 			species Initiator aspect: range;
 			species Initiator aspect: text;
