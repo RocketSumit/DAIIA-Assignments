@@ -13,14 +13,14 @@ global {
 	int max_cycles <- 300000;
 
 	//globals for guest
-	int nb_guests <- 5;
+	int nb_guests <- 20;
 
 	//globals for Initiator
 	int nb_initiator <- 2;
 	list<point> initiators_locs <- [];
 
 	init {
-		seed <- #pi / 5; // Looked good.
+		seed <- #pi / 5.5; // Looked good.
 		create Participant number: nb_guests returns: ps;
 
 		// Randomised locations for Initiator.
@@ -28,8 +28,16 @@ global {
 		loop i from: 1 to: nb_initiator {
 			point auction_point <- {rnd(worldDimension), rnd(worldDimension)};
 			initiators_locs <+ auction_point;
-			create Initiator number: 1 with: (location: auction_point, auction_type: 'Dutch');
-		} }
+			create Initiator number: 1 with: (location: auction_point, auction_type: 'English');
+		}
+
+		//		i <- 1;
+		//		loop i from: 1 to: nb_initiator {
+		//			point auction_point <- {rnd(worldDimension), rnd(worldDimension)};
+		//			initiators_locs <+ auction_point;
+		//			create Initiator number: 1 with: (location: auction_point, auction_type: 'Dutch');
+		//		}
+	}
 
 	reflex stop when: cycle = max_cycles {
 		write "Paused.";
@@ -42,31 +50,30 @@ species Participant skills: [moving, fipa] {
 // moving variables
 	point random_point <- nil;
 	bool moving <- false;
-	float move_speed <- 0.001;
+	float move_speed <- 0.003;
 	float guest_interaction_distance <- 2.0;
 	int resting_cycles <- 5000;
 
 	// Auction variables
 	float auction_interaction_distance <- 10.0;
 	point auction_point <- nil;
-	int wallet_money <- rnd(2000, 4000);
+	int wallet_money <- rnd(500, 4000);
 	bool attend_auction <- flip(0.5);
 	bool at_auction <- false;
 	bool informed_attendance <- false;
 	Initiator auctioneer <- nil;
-	int genre_interested_in <- rnd(1, 2); // 1: T-shirts, 2: CD's
+	string genre_interested_in <- any('T-shirts', 'CDs'); // 1: T-shirts, 2: CD's
 	list<string> items_bought <- nil;
-	string auction_type_interest <- nil;
+	string auction_type_interest <- any('Dutch', 'English');
+	bool accepted_invitation_to_auction <- false;
 
 	// Explore the fest.
 	reflex setrandomPoint when: mod(cycle, resting_cycles) = 0 and !moving and !at_auction {
-		write '(Time ' + time + '): ' + name + ' got new random point.';
 		random_point <- {rnd(worldDimension), rnd(worldDimension)};
 	}
 
 	// Check if at random point.
 	reflex reachedrandomPoint when: random_point != nil and location distance_to (random_point) < guest_interaction_distance and moving {
-		write '(Time ' + time + '): ' + name + ' reached random point.';
 		moving <- false;
 		random_point <- nil;
 	}
@@ -78,9 +85,9 @@ species Participant skills: [moving, fipa] {
 	}
 
 	// Change interest to join auction with time.
-	reflex joinAuction when: (mod(int(time), 100000) = 1) and !at_auction {
+	reflex joinAuction when: (mod(int(time), 50000) = 1) and !at_auction and !accepted_invitation_to_auction {
 		attend_auction <- flip(0.5);
-		auction_type_interest <- first('Dutch', 'English');
+		auction_type_interest <- any('Dutch', 'English');
 	}
 	// Move to auction point.
 	reflex moveToAuctionPoint when: auction_point != nil {
@@ -98,29 +105,32 @@ species Participant skills: [moving, fipa] {
 
 	// Read inform msgs from initiator.
 	reflex receive_inform_messages when: !empty(informs) {
+	//write 'time : ' + time + name + ' informs: ' + informs;
 		message informationFromInitiator <- informs[0];
 
 		// Reset parameters when auction terminates
 		if (informationFromInitiator.contents[0] = 'Auction terminates.') {
-			write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
-			write '\t' + name + ' leaves auction.';
+		//write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
+		//write '\t' + name + ' leaves auction.';
 			auction_point <- nil;
 			moving <- false;
 			at_auction <- false;
 			informed_attendance <- false;
 			auctioneer <- nil;
+			accepted_invitation_to_auction <- false;
 		} else { // Join only one auction at a time
 			if (auctioneer = nil) {
-				write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
+			//write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
 				if (attend_auction and genre_interested_in = informationFromInitiator.contents[2] and informationFromInitiator.contents[0] = auction_type_interest) { // if interested then attend auction.
-					write '\t' + name + ' accept the invitation from ' + Initiator(informationFromInitiator.sender) + '.\n';
-					do inform with: [message:: informationFromInitiator, contents::['I will join.']];
+				//write '\t' + name + ' accept the invitation from ' + Initiator(informationFromInitiator.sender) + '.\n';
+					do inform with: [message:: informationFromInitiator, contents::['I will join.', 'My interest', auction_type_interest, genre_interested_in]];
+					accepted_invitation_to_auction <- true;
 					auctioneer <- Initiator(informationFromInitiator.sender);
 					auction_point <- agent(informationFromInitiator.sender).location;
 					random_point <- nil;
 				} else { // if not interested then refuse to participate.
-					write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
-					write '\t' + name + ' refuse the invitation.\n';
+				//write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
+				//write '\t' + name + ' refuse the invitation.\n';
 					do inform with: [message:: informationFromInitiator, contents::['I am not interested.']];
 				}
 
@@ -137,32 +147,62 @@ species Participant skills: [moving, fipa] {
 	}
 
 	// Read call for proposals from initiator.
-	reflex receive_cfp_from_initiator when: !empty(cfps) {
+	reflex receive_cfp_from_initiator when: !empty(cfps) and auction_type_interest = 'Dutch' {
 		message proposalFromInitiator <- cfps[0];
-		write '(Time ' + time + '): ' + name + ' receives a cfp message from ' + agent(proposalFromInitiator.sender).name + ' with content ' + proposalFromInitiator.contents;
+		//write '(Time ' + time + '): ' + name + ' receives a cfp message from ' + agent(proposalFromInitiator.sender).name + ' with content ' + proposalFromInitiator.contents;
 		int proposed_price <- int(proposalFromInitiator.contents[1]);
 		if (proposed_price > wallet_money) {
-			write '\t' + name + ' sends a refuse message to ' + agent(proposalFromInitiator.sender).name;
+		//write '\t' + name + ' sends a refuse message to ' + agent(proposalFromInitiator.sender).name;
 			do refuse with: [message:: proposalFromInitiator, contents::['I am willing to buy for', wallet_money]];
 		} else {
-			write '\t' + name + ' sends a propose message to ' + agent(proposalFromInitiator.sender).name;
+		//write '\t' + name + ' sends a propose message to ' + agent(proposalFromInitiator.sender).name;
 			do propose with: [message:: proposalFromInitiator, contents::['I will buy ', proposalFromInitiator.contents[0], proposed_price, 'I have ', wallet_money]];
 		}
 
 	}
 
-	//	reflex receive_reject_proposals when: !empty(reject_proposals) {
-	//		message r <- reject_proposals[0];
-	//		//write '(Time ' + time + '): ' + name + ' receives a reject_proposal message from ' + agent(r.sender).name + ' with content ' + r.contents;
-	//	}
+	reflex receive_reject_proposals when: !empty(reject_proposals) and auction_type_interest = 'Dutch' {
+		message r <- reject_proposals[0];
+		write '(Time ' + time + '): ' + name + ' receives a reject_proposal message from ' + agent(r.sender).name + ' with content ' + r.contents;
+	}
 	//
 
 	// Read accept proposals from initiator.
-	reflex receive_accept_proposals when: !empty(accept_proposals) {
+	reflex receive_accept_proposals when: !empty(accept_proposals) and auction_type_interest = 'Dutch' {
 		message a <- accept_proposals[0];
-		//write '(Time ' + time + '): ' + name + ' receives a accept_proposal message from ' + agent(a.sender).name + ' with content ' + a.contents;
+		//write '(Time ' + time + '): ' + name + ' receives a dutch accept_proposal message from ' + agent(a.sender).name + ' with content ' + a.contents;
 		wallet_money <- wallet_money - int(a.contents[1]); // Update wallet money after buying
-		items_bought <+ string(a.contents[0]) + ' for ' + string(a.contents[1]);
+		items_bought <+ string(a.contents[0]) + ' for ' + string(a.contents[1]) + ' from Dutch Auction.';
+	}
+
+	//----------------------------------------------Festival Guest: For English Auction------------------------------------------------
+	// Read call for proposals from initiator.
+	reflex receive_cfp_from_initiator_english when: !empty(cfps) and auction_type_interest = 'English' {
+		message proposalFromInitiator <- cfps[0];
+		//write '(Time ' + time + '): ' + name + ' receives a cfp message from ' + agent(proposalFromInitiator.sender).name + ' with content ' + proposalFromInitiator.contents;
+		int proposed_price <- int(proposalFromInitiator.contents[1]);
+		if (proposed_price > wallet_money) {
+		//write '\t' + name + ' sends a refuse message to ' + agent(proposalFromInitiator.sender).name;
+			do refuse with: [message:: proposalFromInitiator, contents::['I am only willing to spend', wallet_money]];
+		} else {
+		//write '\t' + name + ' sends a propose message to ' + agent(proposalFromInitiator.sender).name;
+			do propose with:
+			[message:: proposalFromInitiator, contents::['I propose to raise the bidding price for', proposalFromInitiator.contents[0], proposed_price, 'I have ', wallet_money]];
+		}
+
+	}
+
+	// Update wallet money for English Auction
+	reflex recive_request_from_english when: !empty(requests) and auction_type_interest = 'English' {
+		message requestFormInitiator <- requests[0];
+		wallet_money <- wallet_money - int(requestFormInitiator.contents[1]); // Update wallet money after buying
+		items_bought <+ string(requestFormInitiator.contents[0]) + ' for ' + string(requestFormInitiator.contents[1]) + ' from English Auction.';
+	}
+
+	// Read accept proposals from initiator.
+	reflex receive_accept_proposals_english when: !empty(accept_proposals) and auction_type_interest = 'English' {
+		message a <- accept_proposals[0];
+		write '(Time ' + time + '): ' + name + ' receives a English accept_proposal message from ' + agent(a.sender).name + ' with content ' + a.contents;
 	}
 
 	// Display character of the guest.
@@ -189,7 +229,7 @@ species Initiator skills: [fipa] {
 	bool no_bid <- false;
 	int attenders <- 0; // nb of buyers present at auction
 	list<Participant> buyers <- []; // list of buyers who accepted invitation to join auction
-	int genre_offered <- rnd(1, 2); // 1: T-shirts, 2: CD's
+	string genre_offered <- any('T-shirts', 'CDs'); // 1: T-shirts, 2: CD's
 	bool genre_decided <- false;
 	// icon varibles
 	image_file my_icon <- nil;
@@ -197,31 +237,34 @@ species Initiator skills: [fipa] {
 	int icon_status <- 0;
 	string auction_type <- nil; // 1: Dutch, 2: English, 3: Sealed-bid
 	list<rgb> mycolors <- [rgb(93, 138, 233, 100), rgb(240, 160, 55, 100)];
-	string auction_title <- nil;
-	rgb auction_color <- nil;
+	string auction_title <- "Preparing...";
+	rgb auction_color <- mycolors[0];
 
 	reflex decideGenre when: !genre_decided {
-		auction_color <- mycolors[genre_offered - 1];
-		// sell T-shirts
-		if (genre_offered = 1) {
+
+	// sell T-shirts
+		if (genre_offered = 'T-shirts') {
+			auction_color <- mycolors[0];
 			item_for_sale <- 'Signed T-shirts';
 			if (auction_type = 'Dutch') {
 				auction_title <- "Dutch:\nSigned T-shirts";
 				item_initial_price <- 4999;
 			} else if (auction_type = 'English') {
-				auction_title <- "English: Signed T-shirts";
+				auction_title <- "English:\nSigned T-shirts";
 				item_initial_price <- 1999;
 			}
 
 			reserved_price <- 2999;
 			price_cut <- rnd(300, 500);
 			genre_decided <- true;
-		} else if (genre_offered = 2) { //sell cd's
+		} else if (genre_offered = 'CDs') { //sell cd's
+			auction_color <- mycolors[1];
 			item_for_sale <- 'CDs';
 			if (auction_type = 'Dutch') {
 				auction_title <- "Dutch:\nCDs";
+				item_initial_price <- 999;
 			} else if (auction_type = 'English') {
-				auction_title <- "English: CDs";
+				auction_title <- "English:\nCDs";
 				item_initial_price <- 199;
 			}
 
@@ -233,7 +276,7 @@ species Initiator skills: [fipa] {
 	}
 
 	// Send invitation to all guests in the festival to join auction.
-	reflex informParticipantsAuction when: mod(int(time), 100000) = 0 and !start_auction {
+	reflex informParticipantsAuction when: mod(int(time), 50000) = 0 and !start_auction {
 		write '\n(Time ' + time + '): ' + name + ' sends a invitation to all Participants';
 		do start_conversation with: [to::list(Participant), protocol::'fipa-contract-net', performative::'inform', contents::[auction_type, item_for_sale, genre_offered]];
 	}
@@ -258,7 +301,7 @@ species Initiator skills: [fipa] {
 
 		if (length(buyers) >= min_participants) {
 			write '\n(Time ' + time + '): ' + name + ' will begin auction shortly.';
-			write 'buyers: ' + length(buyers) + 'attenders: ' + attenders + start_auction;
+			//write 'buyers: ' + length(buyers) + 'attenders: ' + attenders + start_auction;
 			//start_auction <- true;
 			//do start_conversation with: [to::list(buyers), protocol::'fipa-contract-net', performative::'cfp', contents::['T-shirts', item_initial_price]];
 		} else {
@@ -346,6 +389,8 @@ species Initiator skills: [fipa] {
 		no_bid <- false;
 	}
 	// --------------------------------------------------English Auction--------------------------------------------------
+	Participant potential_buyer <- nil;
+	bool result_time <- false;
 	// Start auction by sending first initial price of item to all participants.
 	reflex first_cfp_english when: (attenders = length(buyers)) and attenders != 0 and !start_auction and auction_type = 'English' {
 		start_auction <- true;
@@ -354,6 +399,70 @@ species Initiator skills: [fipa] {
 		do start_conversation with: [to::buyers, protocol::'fipa-contract-net', performative::'cfp', contents::[item_for_sale, item_initial_price]];
 	}
 
+	// Read the proposals from participants. Proposal here means, they agree to buy for current price.
+	// Raise the price if there is atleast one proposal
+	reflex receive_propose_messages_english when: !empty(proposes) and auction_type = 'English' {
+		message first_proposal <- proposes[0];
+		potential_buyer <- Participant(first_proposal.sender);
+		write '\n(Time ' + time + '): ' + name + ' receives propose messages';
+
+		// Accept all the proposals to raise price
+		loop p over: proposes {
+			write '\t' + name + ' receives a propose message from ' + agent(p.sender).name + ' with content ' + p.contents;
+			//write '\t' + name + ' sends a accept_proposal message to ' + p.sender;
+			do accept_proposal with: [message:: p, contents::[p.contents[1], p.contents[2]]];
+		}
+		// send new increased price to all buyers
+		current_price <- current_price + price_cut;
+		do start_conversation with: [to::buyers, protocol::'fipa-contract-net', performative::'cfp', contents::[item_for_sale, current_price]];
+
+		// Item is sold, hence terminate auction.
+		//		write '\n(Time ' + time + '): ' + name + ' terminates auction.';
+		//		do start_conversation with:
+		//		[to::buyers, protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', agent(first_proposal.sender).name + ' buys the ' + first_proposal.contents[1]]];
+		//		start_auction <- false;
+		//		buyers <- [];
+		//		attenders <- 0;
+	}
+
+	// Read refuses from participants.
+	reflex receive_refuse_messages_english when: !empty(refuses) and auction_type = 'English' {
+		if (length(refuses) = length(buyers)) {
+			result_time <- true;
+			write '\n(Time ' + time + '):' + 'No proposals for English Auction. All refuse.';
+		}
+
+		write '\n(Time ' + time + '): ' + name + ' receives refuse messages';
+		loop r over: refuses {
+			write '\t' + name + ' receives a refuse message from ' + agent(r.sender).name + ' with content ' + r.contents;
+		}
+
+	}
+
+	// Declare winner and terminate auction
+	reflex declare_winner_english when: result_time and auction_type = 'English' {
+		if (potential_buyer = nil) {
+			write 'English auction terminates. No one to bid.\n';
+			do start_conversation with: [to::buyers, protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', 'No one bid.']];
+		} else if ((current_price - price_cut) < reserved_price) {
+			write 'English auction terminates. Price is below reserved price.\n';
+			do start_conversation with: [to::buyers, protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', 'Reserved price not reached.']];
+		} else {
+
+		// request the winner to take the item
+			do start_conversation with:
+			[to::list(potential_buyer), protocol::'fipa-contract-net', performative::'request', contents::[item_for_sale, current_price - price_cut, 'Please take it.']];
+			// inform all about the results
+			do start_conversation with:
+			[to::buyers, protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', potential_buyer.name, ' buys the ', item_for_sale, ' for ', current_price - price_cut]];
+		}
+
+		start_auction <- false;
+		buyers <- [];
+		attenders <- 0;
+		potential_buyer <- nil;
+		result_time <- false;
+	}
 	// Display character of the guest.
 	aspect range {
 		draw circle(12) color: auction_color;
@@ -380,7 +489,7 @@ experiment challenge2 type: gui {
 		}
 
 		// Inspect the wallet money of agents live
-		inspect "Auction spendings" value: Participant attributes: ["wallet_money", "items_bought"];
+		inspect "Auction spendings" value: Participant attributes: ["wallet_money", "items_bought", "auction_type_interest", "genre_interested_in"];
 	}
 
 }
