@@ -16,7 +16,7 @@ global {
 	int nb_guests <- 20;
 
 	//globals for Initiator
-	int nb_initiator <- 2;
+	int nb_initiator <- 1;
 	list<point> initiators_locs <- [];
 
 	init {
@@ -31,13 +31,19 @@ global {
 			create Initiator number: 1 with: (location: auction_point, auction_type: 'English');
 		}
 
-		//		i <- 1;
-		//		loop i from: 1 to: nb_initiator {
-		//			point auction_point <- {rnd(worldDimension), rnd(worldDimension)};
-		//			initiators_locs <+ auction_point;
-		//			create Initiator number: 1 with: (location: auction_point, auction_type: 'Dutch');
-		//		}
-	}
+		i <- 1;
+		loop i from: 1 to: nb_initiator {
+			point auction_point <- {rnd(worldDimension), rnd(worldDimension)};
+			initiators_locs <+ auction_point;
+			create Initiator number: 1 with: (location: auction_point, auction_type: 'Dutch');
+		}
+
+		i <- 1;
+		loop i from: 1 to: nb_initiator {
+			point auction_point <- {rnd(worldDimension), rnd(worldDimension)};
+			initiators_locs <+ auction_point;
+			create Initiator number: 1 with: (location: auction_point, auction_type: 'Sealed-bid');
+		} }
 
 	reflex stop when: cycle = max_cycles {
 		write "Paused.";
@@ -64,7 +70,7 @@ species Participant skills: [moving, fipa] {
 	Initiator auctioneer <- nil;
 	string genre_interested_in <- any('T-shirts', 'CDs'); // 1: T-shirts, 2: CD's
 	list<string> items_bought <- nil;
-	string auction_type_interest <- any('Dutch', 'English');
+	string auction_type_interest <- any('Dutch', 'English', 'Sealed-bid');
 	bool accepted_invitation_to_auction <- false;
 
 	// Explore the fest.
@@ -87,7 +93,7 @@ species Participant skills: [moving, fipa] {
 	// Change interest to join auction with time.
 	reflex joinAuction when: (mod(int(time), 50000) = 1) and !at_auction and !accepted_invitation_to_auction {
 		attend_auction <- flip(0.5);
-		auction_type_interest <- any('Dutch', 'English');
+		auction_type_interest <- any('Dutch', 'English', 'Sealed-bid');
 	}
 	// Move to auction point.
 	reflex moveToAuctionPoint when: auction_point != nil {
@@ -204,6 +210,21 @@ species Participant skills: [moving, fipa] {
 		message a <- accept_proposals[0];
 		write '(Time ' + time + '): ' + name + ' receives a English accept_proposal message from ' + agent(a.sender).name + ' with content ' + a.contents;
 	}
+	// --------------------------------------------------Sealed Bid Auction--------------------------------------------------
+	// Read call for proposals from initiator.
+	reflex receive_cfp_from_initiator_sealed_bid when: !empty(cfps) and auction_type_interest = 'Sealed-bid' {
+		message proposalFromInitiator <- cfps[0];
+		string item <- proposalFromInitiator.contents[0];
+		do propose with: [message:: proposalFromInitiator, contents::['My proposal for ', item, ' is ', wallet_money]];
+	}
+
+	// Read accept proposals from initiator.
+	reflex receive_accept_proposals_english when: !empty(accept_proposals) and auction_type_interest = 'Sealed-bid' {
+		message a <- accept_proposals[0];
+		write '(Time ' + time + '): ' + name + ' receives a sealed-bid accept_proposal message from ' + agent(a.sender).name + ' with content ' + a.contents;
+		wallet_money <- wallet_money - int(a.contents[1]); // Update wallet money after buying
+		items_bought <+ string(a.contents[0]) + ' for ' + string(a.contents[1]) + ' from Sealed-bid Auction.';
+	}
 
 	// Display character of the guest.
 	image_file my_icon <- image_file("../includes/icons/guest.png");
@@ -252,6 +273,8 @@ species Initiator skills: [fipa] {
 			} else if (auction_type = 'English') {
 				auction_title <- "English:\nSigned T-shirts";
 				item_initial_price <- 1999;
+			} else {
+				auction_title <- "Sealed-bid:\nSigned T-shirts";
 			}
 
 			reserved_price <- 2999;
@@ -266,6 +289,8 @@ species Initiator skills: [fipa] {
 			} else if (auction_type = 'English') {
 				auction_title <- "English:\nCDs";
 				item_initial_price <- 199;
+			} else {
+				auction_title <- "Sealed-bid:\nCDs";
 			}
 
 			reserved_price <- 299;
@@ -450,6 +475,7 @@ species Initiator skills: [fipa] {
 		} else {
 
 		// request the winner to take the item
+			write 'English auction terminates.' + potential_buyer.name + ' buys the ' + item_for_sale + ' for ' + (current_price - price_cut) + '\n';
 			do start_conversation with:
 			[to::list(potential_buyer), protocol::'fipa-contract-net', performative::'request', contents::[item_for_sale, current_price - price_cut, 'Please take it.']];
 			// inform all about the results
@@ -463,6 +489,51 @@ species Initiator skills: [fipa] {
 		potential_buyer <- nil;
 		result_time <- false;
 	}
+
+	// --------------------------------------------------Sealed Bid Auction--------------------------------------------------
+	// Start auction by calling sealed bid from all participants.
+	reflex first_cfp_sealed_bid when: (attenders = length(buyers)) and attenders != 0 and !start_auction and auction_type = 'Sealed-bid' {
+		start_auction <- true;
+		write '\n(Time ' + time + '): ' + name + ' sends a cfp message to all participants for sealed-bid auction';
+		do start_conversation with: [to::buyers, protocol::'fipa-contract-net', performative::'cfp', contents::[item_for_sale]];
+	}
+
+	// Read the proposals from participants. Proposal here means, they agree to buy for current price.
+	// Raise the price if there is atleast one proposal
+	reflex receive_propose_messages_sealed_bid when: !empty(proposes) and auction_type = 'Sealed-bid' {
+		int max_money <- 0;
+		int proposed_money <- 0;
+		message from_potential_buyer <- nil;
+		write '\n(Time ' + time + '): ' + name + ' receives propose messages';
+
+		// Accept all the proposals to raise price
+		loop p over: proposes {
+			write '\t' + name + ' receives a propose message from ' + agent(p.sender).name + ' with content ' + p.contents;
+			proposed_money <- int(p.contents[3]);
+			if (proposed_money > max_money) {
+				max_money <- proposed_money;
+				potential_buyer <- Participant(p.sender);
+				from_potential_buyer <- p;
+			}
+
+		}
+
+		if (max_money >= reserved_price) {
+			write 'Sealed-bid auction terminates.' + potential_buyer.name + 'buys the ' + item_for_sale + ' for ' + max_money + '.\n';
+			do accept_proposal with: [message:: from_potential_buyer, contents::[item_for_sale, max_money]];
+			do start_conversation with:
+			[to::buyers, protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', potential_buyer.name + 'buys the ' + item_for_sale + ' for ' + max_money + '.\n']];
+		} else {
+			write 'Sealed-bid auction terminates auction because item is asked below reserved price.';
+			do start_conversation with: [to::buyers, protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', 'Item is asked below reserved price.']];
+		}
+
+		start_auction <- false;
+		buyers <- [];
+		attenders <- 0;
+		potential_buyer <- nil;
+	}
+
 	// Display character of the guest.
 	aspect range {
 		draw circle(12) color: auction_color;
