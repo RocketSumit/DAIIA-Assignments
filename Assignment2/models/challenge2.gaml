@@ -16,7 +16,7 @@ global {
 	int nb_guests <- 5;
 
 	//globals for Initiator
-	int nb_initiator <- 1;
+	int nb_initiator <- 2;
 	list<point> initiators_locs <- [];
 
 	init {
@@ -192,35 +192,42 @@ species Initiator skills: [fipa] {
 	int genre_offered <- rnd(1, 2); // 1: T-shirts, 2: CD's
 	bool genre_decided <- false;
 	// icon varibles
-	image_file my_icon <- image_file("../includes/icons/auctioneer.png");
+	image_file my_icon <- nil;
 	float icon_size <- 2 #m;
 	int icon_status <- 0;
 	string auction_type <- nil; // 1: Dutch, 2: English, 3: Sealed-bid
-	reflex decideGenre when: !genre_decided {
+	list<rgb> mycolors <- [rgb(93, 138, 233, 100), rgb(240, 160, 55, 100)];
+	string auction_title <- nil;
+	rgb auction_color <- nil;
 
-	// sell T-shirts
+	reflex decideGenre when: !genre_decided {
+		auction_color <- mycolors[genre_offered - 1];
+		// sell T-shirts
 		if (genre_offered = 1) {
 			item_for_sale <- 'Signed T-shirts';
 			if (auction_type = 'Dutch') {
+				auction_title <- "Dutch:\nSigned T-shirts";
 				item_initial_price <- 4999;
 			} else if (auction_type = 'English') {
+				auction_title <- "English: Signed T-shirts";
 				item_initial_price <- 1999;
 			}
 
 			reserved_price <- 2999;
 			price_cut <- rnd(300, 500);
-		}
-		// sell CD's
-else {
+			genre_decided <- true;
+		} else if (genre_offered = 2) { //sell cd's
 			item_for_sale <- 'CDs';
 			if (auction_type = 'Dutch') {
-				item_initial_price <- 999;
+				auction_title <- "Dutch:\nCDs";
 			} else if (auction_type = 'English') {
+				auction_title <- "English: CDs";
 				item_initial_price <- 199;
 			}
 
 			reserved_price <- 299;
 			price_cut <- rnd(30, 100);
+			genre_decided <- true;
 		}
 
 	}
@@ -349,11 +356,15 @@ else {
 
 	// Display character of the guest.
 	aspect range {
-		draw circle(12) color: rgb(93, 138, 233, 100);
+		draw circle(12) color: auction_color;
 	}
 
 	aspect icon {
 		draw my_icon size: 7 * icon_size;
+	}
+
+	aspect text {
+		draw auction_title color: #black size: 5;
 	}
 
 }
@@ -364,7 +375,7 @@ experiment challenge2 type: gui {
 	// Display map.
 		display challenge2 type: opengl {
 			species Initiator aspect: range;
-			species Initiator aspect: icon;
+			species Initiator aspect: text;
 			species Participant aspect: icon;
 		}
 
