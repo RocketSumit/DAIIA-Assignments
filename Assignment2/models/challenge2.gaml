@@ -13,10 +13,10 @@ global {
 	int max_cycles <- 300000;
 
 	//globals for guest
-	int nb_guests <- 20;
+	int nb_guests <- 30;
 
 	//globals for Initiator
-	int nb_initiator <- 2;
+	int nb_initiator <- 1;
 	list<point> initiators_locs <- [];
 
 	//globals for profits comparison
@@ -32,7 +32,7 @@ global {
 	int auction_frequency <- 10000;
 
 	init {
-		seed <- #pi / 5; // Looked good.
+		seed <- #pi; // Looked good. good seed: pi/5, pi
 		create Participant number: nb_guests returns: ps;
 
 		// Randomised locations for Initiator.
@@ -40,21 +40,27 @@ global {
 		loop i from: 1 to: nb_initiator {
 			point auction_point <- {rnd(worldDimension), rnd(worldDimension)};
 			initiators_locs <+ auction_point;
-			create Initiator number: 1 with: (location: auction_point, auction_type: 'English');
+			create Initiator number: 1 with: (location: auction_point, auction_type: 'English', genre_offered: 'T-shirts');
+			auction_point <- {rnd(worldDimension), rnd(worldDimension)};
+			create Initiator number: 1 with: (location: auction_point, auction_type: 'English', genre_offered: 'CDs');
 		}
 
 		i <- 1;
 		loop i from: 1 to: nb_initiator {
 			point auction_point <- {rnd(worldDimension), rnd(worldDimension)};
 			initiators_locs <+ auction_point;
-			create Initiator number: 1 with: (location: auction_point, auction_type: 'Dutch');
+			create Initiator number: 1 with: (location: auction_point, auction_type: 'Dutch', genre_offered: 'T-shirts');
+			auction_point <- {rnd(worldDimension), rnd(worldDimension)};
+			create Initiator number: 1 with: (location: auction_point, auction_type: 'Dutch', genre_offered: 'CDs');
 		}
 
 		i <- 1;
 		loop i from: 1 to: nb_initiator {
 			point auction_point <- {rnd(worldDimension), rnd(worldDimension)};
 			initiators_locs <+ auction_point;
-			create Initiator number: 1 with: (location: auction_point, auction_type: 'Sealed-bid');
+			create Initiator number: 1 with: (location: auction_point, auction_type: 'Sealed-bid', genre_offered: 'T-shirts');
+			auction_point <- {rnd(worldDimension), rnd(worldDimension)};
+			create Initiator number: 1 with: (location: auction_point, auction_type: 'Sealed-bid', genre_offered: 'CDs');
 		} }
 
 	reflex stop when: cycle = max_cycles {
@@ -301,7 +307,7 @@ species Initiator skills: [fipa] {
 	bool no_bid <- false;
 	int attenders <- 0; // nb of buyers present at auction
 	list<Participant> buyers <- []; // list of buyers who accepted invitation to join auction
-	string genre_offered <- any('T-shirts', 'CDs'); // 1: T-shirts, 2: CD's
+	string genre_offered <- nil; //any('T-shirts', 'CDs'); // 1: T-shirts, 2: CD's
 	bool genre_decided <- false;
 	// icon varibles
 	image_file my_icon <- nil;
@@ -651,9 +657,9 @@ experiment challenge2 type: gui {
 		//inspect "Auction spendings" value: Participant attributes: ["wallet_money", "items_bought", "auction_type_interest", "genre_interested_in"];
 
 		// Monitor global variable of auction stats
-		monitor "Dutch auction stats: " value: [nb_items_sold_dutch[0], nb_items_sold_dutch[1]];
-		monitor "English auction stats: " value: [nb_items_sold_english[0], nb_items_sold_english[1]];
-		monitor "Sealed-bid auction stats: " value: [nb_items_sold_sealed[0], nb_items_sold_sealed[1]];
+		monitor "Dutch auction stats: " value: ['T-shirts: ', nb_items_sold_dutch[0], 'CDs: ', nb_items_sold_dutch[1]];
+		monitor "English auction stats: " value: ['T-shirts: ', nb_items_sold_english[0], 'CDs: ', nb_items_sold_english[1]];
+		monitor "SealedBid auction stats: " value: ['T-shirts: ', nb_items_sold_sealed[0], 'CDs: ', nb_items_sold_sealed[1]];
 	}
 
 }
