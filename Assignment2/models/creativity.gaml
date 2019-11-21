@@ -4,7 +4,7 @@
 * Description: Assignment 2 for DAIIA
 * Tags: Dutch-Auction, FIPA
 ***/
-model challenge2
+model creativity
 
 global {
 	float worldDimension <- 100 #m;
@@ -30,6 +30,8 @@ global {
 	list<int> nb_items_sold_english <- [0, 0];
 	list<int> nb_items_sold_sealed <- [0, 0];
 	int auction_frequency <- 10000;
+	
+	point exitPoint <- {worldDimension, worldDimension / 2.0};
 
 	init {
 		seed <- #pi; // Looked good. good seed: pi/5, pi
@@ -61,12 +63,16 @@ global {
 			create Initiator number: 1 with: (location: auction_point, auction_type: 'Sealed-bid', genre_offered: 'T-shirts');
 			auction_point <- {rnd(worldDimension), rnd(worldDimension)};
 			create Initiator number: 1 with: (location: auction_point, auction_type: 'Sealed-bid', genre_offered: 'CDs');
-		} }
+		}
+		
+    	create ExitGate number: 1 with: (name: "ExitGate", location: exitPoint);
+	}
 
 	reflex stop when: cycle = max_cycles {
 		write "Paused.";
 		do pause;
-	} }
+	}
+}
 
 	// --------------------------------------------------Festival Guests----------------------------------------------
 species Participant skills: [moving, fipa] {
@@ -90,6 +96,9 @@ species Participant skills: [moving, fipa] {
 	list<string> items_bought <- nil;
 	string auction_type_interest <- any('Dutch', 'English', 'Sealed-bid');
 	bool accepted_invitation_to_auction <- false;
+	
+	bool leave <- false;
+	bool leaving <- false;
 
 	// Explore the fest.
 	reflex setrandomPoint when: mod(cycle, resting_cycles) = 0 and !moving and !at_auction {
@@ -111,7 +120,7 @@ species Participant skills: [moving, fipa] {
 	// Change interest to join auction with time.
 	reflex joinAuction when: (mod(int(time), auction_frequency) = 1) and !at_auction and !accepted_invitation_to_auction {
 		attend_auction <- flip(0.5);
-		auction_type_interest <- any('Dutch', 'English', 'Sealed-bid');
+		auction_type_interest <- one_of('Dutch', 'English', 'Sealed-bid');
 	}
 	// Move to auction point.
 	reflex moveToAuctionPoint when: auction_point != nil {
@@ -125,6 +134,21 @@ species Participant skills: [moving, fipa] {
 		moving <- false;
 		auction_point <- nil;
 		at_auction <- true;
+	}
+	
+	reflex lessMoney when: wallet_money < 300 {
+		leave <- true;
+	}
+	
+	reflex leavePlayGround when: leave and !leaving {
+		my_icon <- image_file("../includes/icons/guest_leave.png");
+		random_point <- exitPoint;
+		leaving <- true;
+	}
+	
+	reflex exit when: leave and random_point = exitPoint and location distance_to exitPoint < 2 {
+		write '(Time ' + time + '): ' + name + ' has left the auction.';
+		do die;
 	}
 
 	// Read inform msgs from initiator.
@@ -145,7 +169,7 @@ species Participant skills: [moving, fipa] {
 		} else { // Join only one auction at a time
 			if (auctioneer = nil) {
 			//write '\t' + name + ' receives a inform message from ' + agent(informationFromInitiator.sender).name + ' with content ' + informationFromInitiator.contents;
-				if (attend_auction and genre_interested_in = informationFromInitiator.contents[2] and informationFromInitiator.contents[0] = auction_type_interest) { // if interested then attend auction.
+				if (attend_auction and genre_interested_in = informationFromInitiator.contents[2] and informationFromInitiator.contents[0] = auction_type_interest and !leave) { // if interested then attend auction.
 				//write '\t' + name + ' accept the invitation from ' + Initiator(informationFromInitiator.sender) + '.\n';
 					do inform with: [message:: informationFromInitiator, contents::['I will join.', 'My interest', auction_type_interest, genre_interested_in]];
 					accepted_invitation_to_auction <- true;
@@ -609,28 +633,34 @@ species Initiator skills: [fipa] {
 	aspect range {
 		draw circle(12) color: auction_color;
 	}
-
 	aspect icon {
 		draw my_icon size: 7 * icon_size;
 	}
-
 	aspect text {
 		draw auction_title color: #black size: 5;
 	}
+}
 
+// Exit Gate.
+species ExitGate schedules: [] frequency: 0
+{
+	// Display icon of the drinks shop.
+    image_file my_icon <- image_file("../includes/icons/exit.png");
+    float icon_size <- 1#m;
+    aspect icon {
+        draw my_icon size: 10 * icon_size;
+    }
 }
 
 // Experiment.
-experiment challenge2 type: gui {
+experiment creativity type: gui {
 	output {
-
 	// Display map.
-		display challenge2 type: opengl {
+		display creativity type: opengl {
 			species Initiator aspect: range;
 			species Initiator aspect: text;
+			species ExitGate aspect: icon;
 			species Participant aspect: icon;
 		}
-
 	}
-
 }
