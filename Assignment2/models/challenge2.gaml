@@ -325,13 +325,13 @@ species Initiator skills: [fipa] {
 			auction_color <- mycolors[0];
 			item_for_sale <- 'T-shirts';
 			if (auction_type = 'Dutch') {
-				auction_title <- "Dutch:\nSigned T-shirts";
+				auction_title <- "Dutch:\nT-shirts";
 				item_initial_price <- 5000;
 			} else if (auction_type = 'English') {
-				auction_title <- "English:\nSigned T-shirts";
+				auction_title <- "English:\nT-shirts";
 				item_initial_price <- 2000;
 			} else {
-				auction_title <- "Sealed-bid:\nSigned T-shirts";
+				auction_title <- "Sealed-bid:\nT-shirts";
 			}
 
 			reserved_price <- 3000;
@@ -494,6 +494,7 @@ species Initiator skills: [fipa] {
 		message first_proposal <- proposes[0];
 		potential_buyer <- Participant(first_proposal.sender);
 		write '\n(Time ' + time + '): ' + name + ' receives propose messages';
+		int nb_proposals <- length(proposes);
 
 		// Accept all the proposals to raise price
 		loop p over: proposes {
@@ -502,8 +503,13 @@ species Initiator skills: [fipa] {
 			do accept_proposal with: [message:: p, contents::[p.contents[1], p.contents[2], 'English']];
 		}
 		// send new increased price to all buyers
-		current_price <- current_price + price_cut;
-		do start_conversation with: [to::buyers, protocol::'fipa-contract-net', performative::'cfp', contents::[item_for_sale, current_price]];
+		if (nb_proposals > 1 or (int(first_proposal.contents[2]) < reserved_price)) {
+			current_price <- current_price + price_cut;
+			do start_conversation with: [to::buyers, protocol::'fipa-contract-net', performative::'cfp', contents::[item_for_sale, current_price]];
+		} else {
+			result_time <- true;
+		}
+
 	}
 
 	// Read refuses from participants.
@@ -525,22 +531,22 @@ species Initiator skills: [fipa] {
 		if (potential_buyer = nil) {
 			write 'English auction terminates. No one to bid.\n';
 			do start_conversation with: [to::buyers, protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', 'No one bid.']];
-		} else if ((current_price - price_cut) < reserved_price) {
+		} else if (current_price < reserved_price) {
 			write 'English auction terminates. Price is below reserved price.\n';
+			write 'current price: ' + current_price;
 			do start_conversation with: [to::buyers, protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', 'Reserved price not reached.']];
 		} else {
 
 		// request the winner to take the item
-			write 'English auction terminates.' + potential_buyer.name + ' buys the ' + item_for_sale + ' for ' + (current_price - price_cut) + '\n';
-			do start_conversation with:
-			[to::list(potential_buyer), protocol::'fipa-contract-net', performative::'request', contents::[item_for_sale, current_price - price_cut, 'English']];
+			write 'English auction terminates.' + potential_buyer.name + ' buys the ' + item_for_sale + ' for ' + (current_price) + '\n';
+			do start_conversation with: [to::list(potential_buyer), protocol::'fipa-contract-net', performative::'request', contents::[item_for_sale, current_price, 'English']];
 			// inform all about the results
 			do start_conversation with:
-			[to::buyers, protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', potential_buyer.name, ' buys the ', item_for_sale, ' for ', current_price - price_cut]];
+			[to::buyers, protocol::'fipa-contract-net', performative::'inform', contents::['Auction terminates.', potential_buyer.name, ' buys the ', item_for_sale, ' for ', current_price]];
 			if (item_for_sale = 'T-shirts') {
-				profits_english[0] <- profits_english[0] + (current_price - price_cut - reserved_price);
+				profits_english[0] <- profits_english[0] + (current_price - reserved_price);
 			} else {
-				profits_english[1] <- profits_english[1] + (current_price - price_cut - reserved_price);
+				profits_english[1] <- profits_english[1] + (current_price - reserved_price);
 			}
 
 		}
