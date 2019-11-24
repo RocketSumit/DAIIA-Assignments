@@ -10,7 +10,7 @@ global {
 	float worldDimension <- 100 #m;
 	geometry worldShape <- square(worldDimension);
 	float step <- 1 #s;
-	int max_cycles <- 100000;
+	int max_cycles <- 200000;
 
 	//globals for guest
 	int nb_guests <- 20;
@@ -21,15 +21,16 @@ global {
 
 	//globals for utility
 	init {
-		seed <- #pi / 2; // Looked good. good seed: pi/5, pi
+		seed <- #pi / 5; // good seed: pi/5
 		create Guest number: nb_guests returns: ps;
 
 		// Randomised locations for stages.
 		int i <- 1;
+		bool decent_loc <- false;
 		loop i from: 1 to: nb_stage {
-			point auction_point <- {rnd(worldDimension), rnd(worldDimension)};
-			stages_locs <+ auction_point;
-			create Stage number: 1 with: (location: auction_point);
+			point stage_point <- {rnd(worldDimension), rnd(worldDimension)};
+			stages_locs <+ stage_point;
+			create Stage number: 1 with: (location: stage_point);
 		} }
 
 	reflex stop when: cycle = max_cycles {
@@ -46,7 +47,7 @@ species Guest skills: [moving, fipa] {
 	float move_speed <- 0.005;
 
 	// stage variables
-	float stage_interaction_distance <- rnd(4.0, 10.0); // a avoid clutter at one place
+	float stage_interaction_distance <- rnd(1.0, 10.0); // a avoid clutter at one place
 	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
 	point best_stage_loc <- nil;
 	string best_stage <- nil;
@@ -77,7 +78,7 @@ species Guest skills: [moving, fipa] {
 	// Read inform msgs from initiator.
 	reflex receive_inform_messages when: !empty(informs) {
 		write '\n(Time ' + time + '): ' + name + ' receives inform messages.';
-		write '\t(Time ' + time + '): ' + informs;
+		//write '\t(Time ' + time + '): ' + informs;
 		float max_utility <- 0.0;
 		loop information over: informs {
 			if (string(information.contents[0]) = 'Invitation') {
@@ -96,7 +97,7 @@ species Guest skills: [moving, fipa] {
 		}
 
 		target_point <- best_stage_loc;
-		write '\t(Time ' + time + '): ' + 'My choice is: ' + best_stage + " with utility " + max_utility;
+		write '\t(Time ' + time + '): ' + 'My choice: ' + best_stage + " with utility " + max_utility;
 	}
 
 	aspect icon {
@@ -121,9 +122,18 @@ species Stage skills: [fipa] {
 	reflex newActAttributes when: mod(int(time), act_duration) = 0 {
 		act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
 	}
+
+	//	image_file m1 <- image_file("../includes/icons/guitarist.png");
+	//	image_file m2 <- image_file("../includes/icons/singer.png");
+	//	image_file my_icon <- any(m1, m2);
+	//	list<rgb> mycolors <- [rgb(192, 252, 15, 100), rgb(15, 192, 252, 100), rgb(252, 15, 192, 100)];
+	// aspect icon {
+	//		draw my_icon size: 7 * 2;
+	//	}
+
 	// Display character of the guest.
 	aspect range {
-		draw circle(12) color: #orange;
+		draw circle(12) color: rgb(93, 138, 233, 100) border: #black;
 	}
 
 }
@@ -135,6 +145,8 @@ experiment task2 type: gui {
 	// Display map.
 		display task2 type: opengl {
 			species Stage aspect: range;
+			// for creativity
+			//species Stage aspect: icon;
 			species Guest aspect: icon;
 		}
 
