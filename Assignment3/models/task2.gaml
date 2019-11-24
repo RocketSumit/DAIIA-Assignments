@@ -10,7 +10,7 @@ global {
 	float worldDimension <- 100 #m;
 	geometry worldShape <- square(worldDimension);
 	float step <- 1 #s;
-	int max_cycles <- 300000;
+	int max_cycles <- 1000;
 
 	//globals for guest
 	int nb_guests <- 5;
@@ -44,12 +44,60 @@ species Guest skills: [moving, fipa] {
 	point target_point <- nil;
 	bool moving <- false;
 	float move_speed <- 0.01;
+
+	// stage variables
 	float stage_interaction_distance <- 10.0;
+	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
+	point best_stage_loc <- nil;
+	string best_stage <- nil;
 
 	// Display character of the guest.
 	image_file my_icon <- image_file("../includes/icons/guest.png");
 	float icon_size <- 1 #m;
 	int icon_status <- 0;
+
+	// Utility function
+	float get_utility (list<float> act_attributes) {
+	// Add a more complex function for utility with atleast 6 variables
+		float utility <- act_attributes[0] * my_preferences[0] + act_attributes[1] * my_preferences[1] + act_attributes[2] * my_preferences[2];
+		return utility;
+	}
+	// Move to target point.
+	reflex moveToTargetPoint when: target_point != nil {
+		do goto target: target_point speed: move_speed;
+		moving <- true;
+	}
+
+	// Check if reached stage.
+	reflex reachedStagePoint when: target_point != nil and location distance_to (target_point) < stage_interaction_distance {
+		moving <- false;
+		target_point <- nil;
+	}
+
+	// Read inform msgs from initiator.
+	reflex receive_inform_messages when: !empty(informs) {
+		write '\n(Time ' + time + '): ' + name + ' receives inform messages.';
+		write '\t(Time ' + time + '): ' + informs;
+		float max_utility <- 0.0;
+		loop information over: informs {
+			if (string(information.contents[0]) = 'Invitation') {
+			// Evaluate utility of the act
+				float current_utility <- get_utility(information.contents[1]);
+				write '\t(Time ' + time + '): ' + agent(information.sender).name + ' utility: ' + current_utility;
+				// select best stage
+				if (current_utility > max_utility) {
+					max_utility <- current_utility;
+					best_stage_loc <- agent(information.sender).location;
+					best_stage <- agent(information.sender).name;
+				}
+
+			}
+
+		}
+
+		target_point <- best_stage_loc;
+		write '\t(Time ' + time + '): ' + ' My choice is: ' + best_stage + " with utility " + max_utility;
+	}
 
 	aspect icon {
 		draw my_icon size: 7 * icon_size;
@@ -60,18 +108,22 @@ species Guest skills: [moving, fipa] {
 species Stage skills: [fipa] {
 
 // Stage variables
-	int act_duration <- 10000;
-	list<float> act_attributes <- nil;
+	int act_duration <- 100000;
+	list<float> act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
 
 	// Send invitation to all guests in the festival to join auction.
-	reflex informGuestsAuction when: mod(int(time), act_duration) = 0 {
-		write '\n(Time ' + time + '): ' + name + ' sends a invitation to all Guests';
-		do start_conversation with: [to::list(Guest), protocol::'fipa-contract-net', performative::'inform', contents::[act_attributes]];
+	reflex informGuestsAboutActs when: time = 0 { //mod(int(time), act_duration) = 0
+		write '\n(Time ' + time + '): ' + name + ' sends a invitation to all the guests.';
+		do start_conversation with: [to::list(Guest), protocol::'fipa-contract-net', performative::'inform', contents::['Invitation', act_attributes]];
 	}
 
+	// Change act attributes once it ends
+	reflex newActAttributes when: mod(int(time), act_duration) = 0 {
+		act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
+	}
 	// Display character of the guest.
 	aspect range {
-		draw circle(12) color: #blue;
+		draw circle(12) color: #orange;
 	}
 
 }
@@ -81,11 +133,13 @@ experiment task2 type: gui {
 	output {
 
 	// Display map.
-		display challenge2 type: opengl {
+		display task2 type: opengl {
 			species Stage aspect: range;
 			species Guest aspect: icon;
 		}
 
+		// Inspect the attributes of stages
+		inspect "Stages act" value: Stage attributes: ["act_attributes"];
 	}
 
 }
