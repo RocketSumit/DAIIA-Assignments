@@ -4,7 +4,7 @@
 * Description: Assignment 2 for DAIIA
 * Tags: Dutch-Auction, FIPA
 ***/
-model challenge
+model creativity
 
 global {
 	float worldDimension <- 100 #m;
@@ -19,6 +19,7 @@ global {
 	int nb_stage <- 4;
 	list<point> stages_locs <- [];
 	list<Guest> guestlist <- nil;
+	list<string> roles <- ['guitarist', 'play', 'singer', 'dancer'];
 
 	//globals for utility
 	init {
@@ -28,12 +29,12 @@ global {
 		create Guest number: 1 with: (role: "leader");
 
 		// Randomised locations for stages.
-		int i <- 1;
+		int i <- 0;
 		bool decent_loc <- false;
-		loop i from: 1 to: nb_stage {
+		loop i from: 0 to: nb_stage - 1 {
 			point stage_point <- {rnd(worldDimension), rnd(worldDimension)};
 			stages_locs <+ stage_point;
-			create Stage number: 1 with: (location: stage_point);
+			create Stage number: 1 with: (location: stage_point, role: roles[i]);
 		} }
 
 	reflex stop when: cycle = max_cycles {
@@ -50,7 +51,7 @@ species Guest skills: [moving, fipa] {
 	float move_speed <- 0.005;
 
 	// stage variables
-	float stage_interaction_distance <- rnd(1.0, 10.0); // to avoid clutter at one place
+	float stage_interaction_distance <- rnd(4.0, 12.0); // to avoid clutter at one place
 	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Visuals 7.Popularity
 	list<point> stage_locs <- nil;
 	list<float> stage_utility <- nil;
@@ -61,6 +62,8 @@ species Guest skills: [moving, fipa] {
 	string role <- "guest";
 	bool crowd_mass <- flip(0.6); // attribute showing if agent prefers crowd or not
 	bool leader_inform_others <- false;
+	list<string> acts <- nil;
+	string best_act <- nil;
 
 	// Display character of the guest.
 	image_file my_icon <- image_file("../includes/icons/" + role + ".png");
@@ -84,7 +87,10 @@ species Guest skills: [moving, fipa] {
 		moving <- false;
 		target_point <- nil;
 	}
-
+	// Dance.
+	reflex dance when: !moving and best_act = 'dancer' {
+		do wander speed: 0.02 bounds: square(0.2 #m);
+	}
 	// Read inform msgs from stage initiator.
 	reflex receive_inform_messages when: !empty(informs) {
 		write '\n(Time ' + time + '): ' + name + ' receives inform messages.';
@@ -99,12 +105,14 @@ species Guest skills: [moving, fipa] {
 				stage_utility <+ current_utility;
 				stage_locs <+ agent(information.sender).location;
 				stages <+ agent(information.sender).name;
+				acts <+ information.contents[2];
 				write '\t(Time ' + time + '): ' + agent(information.sender).name + ' utility: ' + current_utility;
 				// select best stage
 				if (current_utility > max_utility) {
 					max_utility <- current_utility;
 					best_stage_loc <- agent(information.sender).location;
 					best_stage <- agent(information.sender).name;
+					best_act <- information.contents[2];
 				}
 
 			}
@@ -123,7 +131,7 @@ species Guest skills: [moving, fipa] {
 	// The leader informs other guest to follow him or the crowd
 	reflex informGuestsToAccumulate when: leader_inform_others {
 		write '\n(Time ' + time + '): ' + name + ' LEADER asks all to visit ' + best_stage + "\n";
-		do start_conversation with: [to::guestlist, protocol::'fipa-contract-net', performative::'request', contents::['Leader announcement', best_stage, best_stage_loc]];
+		do start_conversation with: [to::guestlist, protocol::'fipa-contract-net', performative::'request', contents::['Leader announcement', best_stage, best_stage_loc, best_act]];
 		leader_inform_others <- false;
 	}
 
@@ -133,6 +141,7 @@ species Guest skills: [moving, fipa] {
 		if (string(r.contents[0]) = 'Leader announcement' and crowd_mass) {
 			best_stage_loc <- r.contents[2];
 			best_stage <- r.contents[1];
+			best_act <- r.contents[3];
 			target_point <- best_stage_loc;
 			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " LOVES CROWD.";
 		} else if (r.contents[0] = 'Leader announcement' and !crowd_mass and best_stage = r.contents[1]) {
@@ -140,12 +149,14 @@ species Guest skills: [moving, fipa] {
 			remove best_stage_loc from: stage_locs;
 			remove best_stage from: stages;
 			remove best_utility from: stage_utility;
+			remove best_act from: acts;
 
 			// find new second best stage act
 			float temp_uti <- max(stage_utility);
 			int ind <- stage_utility index_of temp_uti;
 			best_stage_loc <- stage_locs[ind];
 			best_stage <- stages[ind];
+			best_act <- acts[ind];
 			target_point <- best_stage_loc;
 			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " HATES CROWD.";
 		}
@@ -162,12 +173,15 @@ species Stage skills: [fipa] {
 
 // Stage variables
 	int act_duration <- 20000;
+	string role <- nil;
 	list<float> act_attributes <- [rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1];
 
 	// Send invitation to all guests in the festival to join auction.
 	reflex informGuestsAboutActs when: mod(int(time), act_duration) = 0 {
 		write '\n(Time ' + time + '): ' + name + ' sends a invitation to all the guests.';
-		do start_conversation with: [to::list(Guest), protocol::'fipa-contract-net', performative::'inform', contents::['Invitation', act_attributes]];
+		role <- any(['guitarist', 'play', 'singer', 'dancer']);
+		my_icon <- image_file("../includes/icons/" + role + ".png");
+		do start_conversation with: [to::list(Guest), protocol::'fipa-contract-net', performative::'inform', contents::['Invitation', act_attributes, role]];
 	}
 
 	// Change act attributes once it ends
@@ -175,38 +189,38 @@ species Stage skills: [fipa] {
 		act_attributes <- [rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1];
 	}
 
-	//	image_file m1 <- image_file("../includes/icons/guitarist.png");
-	//	image_file m2 <- image_file("../includes/icons/singer.png");
-	//	image_file my_icon <- any(m1, m2);
-	//	list<rgb> mycolors <- [rgb(192, 252, 15, 100), rgb(15, 192, 252, 100), rgb(252, 15, 192, 100)];
-	// aspect icon {
-	//		draw my_icon size: 7 * 2;
-	//	}
+	image_file my_icon <- image_file("../includes/icons/" + role + ".png");
+	list<rgb> mycolors <- [rgb(192, 252, 15, 100), rgb(15, 192, 252, 100), rgb(252, 15, 192, 100)];
+
+	aspect icon {
+		draw my_icon size: 7 * 2;
+	}
 
 	// Display character of the guest.
 	aspect range {
-		draw circle(12) color: rgb(93, 138, 233, 100) border: #black;
-	}
+		if (role = 'guitarist' or role = 'dancer') {
+			draw circle(12) color: any(mycolors) border: #black;
+		} else {
+			draw circle(12) color: rgb(93, 138, 233, 100) border: #black;
+		}
 
-	aspect text {
-		draw name color: #black size: 5;
 	}
 
 }
 
 // Experiment.
-experiment challenge type: gui {
+experiment creativity type: gui {
 	output {
 
 	// Display map.
-		display challenge type: opengl {
+		display creativity type: opengl {
 			species Stage aspect: range;
-			species Stage aspect: text;
+			species Stage aspect: icon;
 			species Guest aspect: icon;
 		}
 
 		// Inspect the attributes of stages
-		inspect "Stages act" value: Stage attributes: ["act_attributes"];
+		inspect "Stages act" value: Stage attributes: ["act_attributes", "role"];
 	}
 
 }

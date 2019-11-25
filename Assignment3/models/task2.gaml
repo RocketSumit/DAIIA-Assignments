@@ -110,7 +110,7 @@ species Stage skills: [fipa] {
 
 // Stage variables
 	int act_duration <- 20000;
-	list<float> act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
+	list<float> act_attributes <- [rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1];
 
 	// Send invitation to all guests in the festival to join auction.
 	reflex informGuestsAboutActs when: mod(int(time), act_duration) = 0 {
@@ -120,7 +120,7 @@ species Stage skills: [fipa] {
 
 	// Change act attributes once it ends
 	reflex newActAttributes when: mod(int(time), act_duration) = 0 {
-		act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
+		act_attributes <- [rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1];
 	}
 
 	//	image_file m1 <- image_file("../includes/icons/guitarist.png");
