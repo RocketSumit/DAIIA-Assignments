@@ -13,10 +13,10 @@ global {
 	int max_cycles <- 10;
 
 	//globals for guest
-	int nb_guests <- 5;
+	int nb_guests <- 30;
 
 	//globals for Stage
-	int nb_stage <- 2;
+	int nb_stage <- 4;
 	list<point> stages_locs <- [];
 	list<Guest> guestlist <- nil;
 
@@ -59,7 +59,7 @@ species Guest skills: [moving, fipa] {
 	string best_stage <- nil;
 	float best_utility <- 0.0;
 	string role <- "guest";
-	bool crowd_mass <- flip(0.5); // attribute showing if agent prefers crowd or not
+	bool crowd_mass <- flip(0.6); // attribute showing if agent prefers crowd or not
 	bool leader_inform_others <- false;
 
 	// Display character of the guest.
@@ -133,8 +133,9 @@ species Guest skills: [moving, fipa] {
 		if (string(r.contents[0]) = 'Leader announcement' and crowd_mass) {
 			best_stage_loc <- r.contents[2];
 			best_stage <- r.contents[1];
+			target_point <- best_stage_loc;
 			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " LOVES CROWD.";
-		} else if (!crowd_mass and best_stage = r.contents[1]) {
+		} else if (r.contents[0] = 'Leader announcement' and !crowd_mass and best_stage = r.contents[1]) {
 		// Change own stage because I prefer less crowd
 			remove best_stage_loc from: stage_locs;
 			remove best_stage from: stages;
@@ -145,6 +146,7 @@ species Guest skills: [moving, fipa] {
 			int ind <- stage_utility index_of temp_uti;
 			best_stage_loc <- stage_locs[ind];
 			best_stage <- stages[ind];
+			target_point <- best_stage_loc;
 			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " HATES CROWD.";
 		}
 
