@@ -4,25 +4,28 @@
 * Description: Assignment 2 for DAIIA
 * Tags: Dutch-Auction, FIPA
 ***/
-model task2
+model challenge
 
 global {
 	float worldDimension <- 100 #m;
 	geometry worldShape <- square(worldDimension);
 	float step <- 1 #s;
-	int max_cycles <- 200000;
+	int max_cycles <- 10;
 
 	//globals for guest
-	int nb_guests <- 20;
+	int nb_guests <- 5;
 
 	//globals for Stage
-	int nb_stage <- 4;
+	int nb_stage <- 2;
 	list<point> stages_locs <- [];
+	list<Guest> guestlist <- nil;
 
 	//globals for utility
 	init {
 		seed <- #pi / 5; // good seed: pi/5
-		create Guest number: nb_guests returns: ps;
+		create Guest number: nb_guests with: (role: "guest") returns: gs;
+		guestlist <- gs;
+		create Guest number: 1 with: (role: "leader");
 
 		// Randomised locations for stages.
 		int i <- 1;
@@ -48,12 +51,17 @@ species Guest skills: [moving, fipa] {
 
 	// stage variables
 	float stage_interaction_distance <- rnd(1.0, 10.0); // to avoid clutter at one place
-	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Visuals 7.Popularity 
+	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Visuals 7.Popularity
+	list<point> stage_locs <- nil;
+	list<float> stage_utility <- nil;
 	point best_stage_loc <- nil;
 	string best_stage <- nil;
+	string role <- "guest";
+	bool crowd_mass <- flip(0.5); // attribute showing if agent prefers crowd or not
+	bool leader_inform_others <- false;
 
 	// Display character of the guest.
-	image_file my_icon <- image_file("../includes/icons/guest.png");
+	image_file my_icon <- image_file("../includes/icons/" + role + ".png");
 	float icon_size <- 1 #m;
 	int icon_status <- 0;
 
@@ -80,10 +88,14 @@ species Guest skills: [moving, fipa] {
 		write '\n(Time ' + time + '): ' + name + ' receives inform messages.';
 		//write '\t(Time ' + time + '): ' + informs;
 		float max_utility <- 0.0;
+		stage_utility <- nil;
+		stage_locs <- nil;
 		loop information over: informs {
 			if (string(information.contents[0]) = 'Invitation') {
 			// Evaluate utility of the act
 				float current_utility <- get_utility(information.contents[1]);
+				stage_utility <+ current_utility;
+				stage_locs <+ agent(information.sender).location;
 				write '\t(Time ' + time + '): ' + agent(information.sender).name + ' utility: ' + current_utility;
 				// select best stage
 				if (current_utility > max_utility) {
@@ -97,7 +109,29 @@ species Guest skills: [moving, fipa] {
 		}
 
 		target_point <- best_stage_loc;
+		if (role = "leader") {
+			leader_inform_others <- true; // leader should informs other about his selection
+		}
+
 		write '\t(Time ' + time + '): ' + 'My choice: ' + best_stage + " with utility " + max_utility;
+	}
+
+	// The leader informs other guest to follow him or the crowd
+	reflex informGuestsToAccumulate when: leader_inform_others {
+		write '\n(Time ' + time + '): ' + name + ' LEADER asks all to visit ' + best_stage + "\n";
+		do start_conversation with: [to::guestlist, protocol::'fipa-contract-net', performative::'request', contents::['Leader announcement', best_stage, best_stage_loc]];
+		leader_inform_others <- false;
+	}
+
+	// Read request msgs from stage initiator.
+	reflex receive_request_messages when: !empty(requests) {
+		message r <- requests[0];
+		if (string(r.contents[0]) = 'Leader announcement' and crowd_mass) {
+			best_stage_loc <- r.contents[2];
+			best_stage <- r.contents[1];
+			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " going with crowd.";
+		}
+
 	}
 
 	aspect icon {
@@ -139,11 +173,11 @@ species Stage skills: [fipa] {
 }
 
 // Experiment.
-experiment task2 type: gui {
+experiment challenge type: gui {
 	output {
 
 	// Display map.
-		display task2 type: opengl {
+		display challenge type: opengl {
 			species Stage aspect: range;
 			// for creativity
 			//species Stage aspect: icon;
