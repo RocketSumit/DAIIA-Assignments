@@ -54,8 +54,10 @@ species Guest skills: [moving, fipa] {
 	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Visuals 7.Popularity
 	list<point> stage_locs <- nil;
 	list<float> stage_utility <- nil;
+	list<string> stages <- nil;
 	point best_stage_loc <- nil;
 	string best_stage <- nil;
+	float best_utility <- 0.0;
 	string role <- "guest";
 	bool crowd_mass <- flip(0.5); // attribute showing if agent prefers crowd or not
 	bool leader_inform_others <- false;
@@ -96,6 +98,7 @@ species Guest skills: [moving, fipa] {
 				float current_utility <- get_utility(information.contents[1]);
 				stage_utility <+ current_utility;
 				stage_locs <+ agent(information.sender).location;
+				stages <+ agent(information.sender).name;
 				write '\t(Time ' + time + '): ' + agent(information.sender).name + ' utility: ' + current_utility;
 				// select best stage
 				if (current_utility > max_utility) {
@@ -109,6 +112,7 @@ species Guest skills: [moving, fipa] {
 		}
 
 		target_point <- best_stage_loc;
+		best_utility <- max_utility;
 		if (role = "leader") {
 			leader_inform_others <- true; // leader should informs other about his selection
 		}
@@ -129,7 +133,19 @@ species Guest skills: [moving, fipa] {
 		if (string(r.contents[0]) = 'Leader announcement' and crowd_mass) {
 			best_stage_loc <- r.contents[2];
 			best_stage <- r.contents[1];
-			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " going with crowd.";
+			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " LOVES CROWD.";
+		} else if (!crowd_mass and best_stage = r.contents[1]) {
+		// Change own stage because I prefer less crowd
+			remove best_stage_loc from: stage_locs;
+			remove best_stage from: stages;
+			remove best_utility from: stage_utility;
+
+			// find new second best stage act
+			float temp_uti <- max(stage_utility);
+			int ind <- stage_utility index_of temp_uti;
+			best_stage_loc <- stage_locs[ind];
+			best_stage <- stages[ind];
+			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " HATES CROWD.";
 		}
 
 	}
