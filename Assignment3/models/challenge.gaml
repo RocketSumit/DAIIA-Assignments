@@ -10,7 +10,7 @@ global {
 	float worldDimension <- 100 #m;
 	geometry worldShape <- square(worldDimension);
 	float step <- 1 #s;
-	int max_cycles <- 100000;
+	int max_cycles <- 40000;
 
 	//globals for guest
 	int nb_guests <- 30;
@@ -20,7 +20,6 @@ global {
 	list<point> stages_locs <- [];
 	list<Guest> guestlist <- nil;
 
-	//globals for utility
 	init {
 		seed <- #pi / 5; // good seed: pi/5
 		create Guest number: nb_guests with: (role: "guest") returns: gs;
@@ -60,6 +59,7 @@ species Guest skills: [moving, fipa] {
 	float best_utility <- 0.0;
 	string role <- "guest";
 	bool crowd_mass <- flip(0.6); // attribute showing if agent prefers crowd or not
+	float crowd_attribute <- 1.5;
 	bool leader_inform_others <- false;
 
 	// Display character of the guest.
@@ -131,23 +131,37 @@ species Guest skills: [moving, fipa] {
 	reflex receive_request_messages when: !empty(requests) {
 		message r <- requests[0];
 		if (string(r.contents[0]) = 'Leader announcement' and crowd_mass) {
+			float prev_utility <- best_utility;
 			best_stage_loc <- r.contents[2];
 			best_stage <- r.contents[1];
 			target_point <- best_stage_loc;
-			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " LOVES CROWD.";
+			best_utility <- stage_utility[stages index_of best_stage];
+			best_utility <- best_utility * crowd_attribute;
+			write '\t(Time ' + time + '): ' + name + ' New choice: ' + best_stage + " with utility " + best_utility + " (" + prev_utility + "). LOVES CROWD.";
 		} else if (r.contents[0] = 'Leader announcement' and !crowd_mass and best_stage = r.contents[1]) {
-		// Change own stage because I prefer less crowd
-			remove best_stage_loc from: stage_locs;
-			remove best_stage from: stages;
-			remove best_utility from: stage_utility;
+			int ind <- stage_utility index_of (max(stage_utility));
+			float prev_utility <- best_utility;
+			stage_utility[ind] <- stage_utility[ind] / crowd_attribute;
+			best_utility <- stage_utility[ind];
+			int ind_new <- stage_utility index_of (max(stage_utility));
+			if (ind_new != ind) {
+			// Change own stage because I prefer less crowd as it has decresed my utility
+				remove best_stage_loc from: stage_locs;
+				remove best_stage from: stages;
+				remove best_utility from: stage_utility;
 
-			// find new second best stage act
-			float temp_uti <- max(stage_utility);
-			int ind <- stage_utility index_of temp_uti;
-			best_stage_loc <- stage_locs[ind];
-			best_stage <- stages[ind];
-			target_point <- best_stage_loc;
-			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " HATES CROWD.";
+				// find new second best stage act
+				int ind <- stage_utility index_of (max(stage_utility));
+				best_stage_loc <- stage_locs[ind];
+				best_stage <- stages[ind];
+				best_utility <- stage_utility[ind];
+				target_point <- best_stage_loc;
+				write
+				'\t(Time ' + time + '): ' + name + ' New choice: ' + best_stage + " with utility " + best_utility + " (" + prev_utility + " -> " + prev_utility / crowd_attribute + "). HATES CROWD.";
+			} else {
+				write '\t(Time ' + time + '): ' + name + ' Same choice: ' + best_stage + " with utility " + best_utility + " (" + prev_utility + "). HATES CROWD but others acts are too bad.";
+			}
+
 		}
 
 	}
@@ -162,7 +176,7 @@ species Stage skills: [fipa] {
 
 // Stage variables
 	int act_duration <- 20000;
-	list<float> act_attributes <- [rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1];
+	list<float> act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
 
 	// Send invitation to all guests in the festival to join auction.
 	reflex informGuestsAboutActs when: mod(int(time), act_duration) = 0 {
@@ -172,7 +186,7 @@ species Stage skills: [fipa] {
 
 	// Change act attributes once it ends
 	reflex newActAttributes when: mod(int(time), act_duration) = 0 {
-		act_attributes <- [rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1];
+		act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
 	}
 
 	//	image_file m1 <- image_file("../includes/icons/guitarist.png");
