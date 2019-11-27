@@ -189,14 +189,6 @@ species Stage skills: [fipa] {
 		act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
 	}
 
-	//	image_file m1 <- image_file("../includes/icons/guitarist.png");
-	//	image_file m2 <- image_file("../includes/icons/singer.png");
-	//	image_file my_icon <- any(m1, m2);
-	//	list<rgb> mycolors <- [rgb(192, 252, 15, 100), rgb(15, 192, 252, 100), rgb(252, 15, 192, 100)];
-	// aspect icon {
-	//		draw my_icon size: 7 * 2;
-	//	}
-
 	// Display character of the guest.
 	aspect range {
 		draw circle(12) color: rgb(93, 138, 233, 100) border: #black;

@@ -62,6 +62,7 @@ species Guest skills: [moving, fipa] {
 	float best_utility <- 0.0;
 	string role <- "guest";
 	bool crowd_mass <- flip(0.6); // attribute showing if agent prefers crowd or not
+	float crowd_attribute <- 1.5;
 	bool leader_inform_others <- false;
 	list<string> acts <- nil;
 	string best_act <- nil;
@@ -141,28 +142,41 @@ species Guest skills: [moving, fipa] {
 	reflex receive_request_messages when: !empty(requests) {
 		message r <- requests[0];
 		if (string(r.contents[0]) = 'Leader announcement' and crowd_mass) {
+			float prev_utility <- best_utility;
 			best_stage_loc <- r.contents[2];
 			best_stage <- r.contents[1];
 			best_act <- r.contents[3];
 			target_point <- best_stage_loc;
 			target_point <- {target_point.x + rnd(-10, 10), target_point.y + rnd(8, 10)};
-			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " LOVES CROWD.";
+			write '\t(Time ' + time + '): ' + name + ' New choice: ' + best_stage + " with utility " + best_utility + " (" + prev_utility + "). LOVES CROWD.";
 		} else if (r.contents[0] = 'Leader announcement' and !crowd_mass and best_stage = r.contents[1]) {
-		// Change own stage because I prefer less crowd
-			remove best_stage_loc from: stage_locs;
-			remove best_stage from: stages;
-			remove best_utility from: stage_utility;
-			remove best_act from: acts;
+			int ind <- stage_utility index_of (max(stage_utility));
+			float prev_utility <- best_utility;
+			stage_utility[ind] <- stage_utility[ind] / crowd_attribute;
+			best_utility <- stage_utility[ind];
+			int ind_new <- stage_utility index_of (max(stage_utility));
+			if (ind_new != ind) {
+			// Change own stage because I prefer less crowd as it has decresed my utility
+			// Change own stage because I prefer less crowd
+				remove best_stage_loc from: stage_locs;
+				remove best_stage from: stages;
+				remove best_utility from: stage_utility;
+				remove best_act from: acts;
 
-			// find new second best stage act
-			float temp_uti <- max(stage_utility);
-			int ind <- stage_utility index_of temp_uti;
-			best_stage_loc <- stage_locs[ind];
-			best_stage <- stages[ind];
-			best_act <- acts[ind];
-			target_point <- best_stage_loc;
-			target_point <- {target_point.x + rnd(-10, 10), target_point.y + rnd(8, 10)};
-			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " HATES CROWD.";
+				// find new second best stage act
+				int ind <- stage_utility index_of (max(stage_utility));
+				best_stage_loc <- stage_locs[ind];
+				best_stage <- stages[ind];
+				best_utility <- stage_utility[ind];
+				best_act <- acts[ind];
+				target_point <- best_stage_loc;
+				target_point <- {target_point.x + rnd(-10, 10), target_point.y + rnd(8, 10)};
+				write
+				'\t(Time ' + time + '): ' + name + ' New choice: ' + best_stage + " with utility " + best_utility + " (" + prev_utility + " -> " + prev_utility / crowd_attribute + "). HATES CROWD.";
+			} else {
+				write '\t(Time ' + time + '): ' + name + ' Same choice: ' + best_stage + " with utility " + best_utility + " (" + prev_utility + "). HATES CROWD but others acts are too bad.";
+			}
+
 		}
 
 	}
@@ -178,7 +192,7 @@ species Stage skills: [fipa] {
 // Stage variables
 	int act_duration <- 20000;
 	string role <- nil;
-	list<float> act_attributes <- [rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1];
+	list<float> act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
 	list<int> dance_timer <- [50, 200];
 	list<int> dance_frames <- [285, 27];
 	list<int> band_timer <- [150, 100];
@@ -203,7 +217,7 @@ species Stage skills: [fipa] {
 
 	// Change act attributes once it ends
 	reflex newActAttributes when: mod(int(time), act_duration) = 0 {
-		act_attributes <- [rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1];
+		act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
 	}
 
 	image_file my_icon <- image_file("../includes/icons/" + role + ".png");
