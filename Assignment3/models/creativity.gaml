@@ -17,9 +17,10 @@ global {
 
 	//globals for Stage
 	int nb_stage <- 4;
-	list<point> stages_locs <- [];
+	list<point>
+	stages_locs <- [{worldDimension / 4, worldDimension / 4}, {worldDimension / 4, worldDimension * (3 / 4)}, {worldDimension * (3 / 4), worldDimension * (3 / 4)}, {worldDimension * (3 / 4), worldDimension / 4}];
 	list<Guest> guestlist <- nil;
-	list<string> roles <- ['guitarist', 'play', 'singer', 'dancer'];
+	list<string> roles <- ['band', 'play', 'singer', 'dancer'];
 
 	//globals for utility
 	init {
@@ -32,9 +33,9 @@ global {
 		int i <- 0;
 		bool decent_loc <- false;
 		loop i from: 0 to: nb_stage - 1 {
-			point stage_point <- {rnd(worldDimension), rnd(worldDimension)};
-			stages_locs <+ stage_point;
-			create Stage number: 1 with: (location: stage_point, role: roles[i]);
+		//			point stage_point <- {rnd(worldDimension), rnd(worldDimension)};
+		//			stages_locs <+ stage_point;
+			create Stage number: 1 with: (location: stages_locs[i], role: roles[i]);
 		} }
 
 	reflex stop when: cycle = max_cycles {
@@ -51,7 +52,7 @@ species Guest skills: [moving, fipa] {
 	float move_speed <- 0.005;
 
 	// stage variables
-	float stage_interaction_distance <- rnd(4.0, 12.0); // to avoid clutter at one place
+	float stage_interaction_distance <- rnd(5.0, 12.0); // to avoid clutter at one place
 	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Visuals 7.Popularity
 	list<point> stage_locs <- nil;
 	list<float> stage_utility <- nil;
@@ -143,6 +144,7 @@ species Guest skills: [moving, fipa] {
 			best_stage <- r.contents[1];
 			best_act <- r.contents[3];
 			target_point <- best_stage_loc;
+			target_point <- {target_point.x + rnd(-5, 5), target_point.y + rnd(-5, 5)};
 			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " LOVES CROWD.";
 		} else if (r.contents[0] = 'Leader announcement' and !crowd_mass and best_stage = r.contents[1]) {
 		// Change own stage because I prefer less crowd
@@ -158,6 +160,7 @@ species Guest skills: [moving, fipa] {
 			best_stage <- stages[ind];
 			best_act <- acts[ind];
 			target_point <- best_stage_loc;
+			target_point <- {target_point.x + rnd(-5, 5), target_point.y + rnd(-5, 5)};
 			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " HATES CROWD.";
 		}
 
@@ -175,12 +178,25 @@ species Stage skills: [fipa] {
 	int act_duration <- 20000;
 	string role <- nil;
 	list<float> act_attributes <- [rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1, rnd(0.0, 1.0) with_precision 1];
+	list<int> dance_timer <- [50, 200];
+	list<int> dance_frames <- [285, 27];
+	list<int> band_timer <- [150, 100];
+	list<int> band_frames <- [25, 73];
+	list<int> singer_timer <- [100, 100];
+	list<int> singer_frames <- [97, 109];
+	list<int> play_timer <- [200, 150];
+	list<int> play_frames <- [49, 81];
+	int timer <- 0;
+	bool aspect_decided <- false;
+	string icon_folder <- nil;
+	int max_frames <- 0;
 
 	// Send invitation to all guests in the festival to join auction.
 	reflex informGuestsAboutActs when: mod(int(time), act_duration) = 0 {
 		write '\n(Time ' + time + '): ' + name + ' sends a invitation to all the guests.';
-		role <- any(['guitarist', 'play', 'singer', 'dancer']);
+		role <- any(['band', 'play', 'singer', 'dancer']);
 		my_icon <- image_file("../includes/icons/" + role + ".png");
+		aspect_decided <- false;
 		do start_conversation with: [to::list(Guest), protocol::'fipa-contract-net', performative::'inform', contents::['Invitation', act_attributes, role]];
 	}
 
@@ -196,9 +212,76 @@ species Stage skills: [fipa] {
 		draw my_icon size: 7 * 2;
 	}
 
+	reflex decideDancerLook when: role = 'dancer' and !aspect_decided {
+		icon_folder <- any("dancer1", "dancer2");
+		if (icon_folder = "dancer1") {
+			timer <- dance_timer[0];
+			max_frames <- dance_frames[0];
+		} else {
+			timer <- dance_timer[1];
+			max_frames <- dance_frames[1];
+		}
+
+		aspect_decided <- true;
+		cur_ind <- 1;
+	}
+
+	reflex decideBandLook when: role = 'band' and !aspect_decided {
+		icon_folder <- any("band1", "band2");
+		if (icon_folder = "band1") {
+			timer <- band_timer[0];
+			max_frames <- band_frames[0];
+		} else {
+			timer <- band_timer[1];
+			max_frames <- band_frames[1];
+		}
+
+		aspect_decided <- true;
+		cur_ind <- 1;
+	}
+
+	reflex decideSingerLook when: role = 'singer' and !aspect_decided {
+		icon_folder <- any("singer1", "singer2");
+		if (icon_folder = "singer1") {
+			timer <- singer_timer[0];
+			max_frames <- singer_frames[0];
+		} else {
+			timer <- singer_timer[1];
+			max_frames <- singer_frames[1];
+		}
+
+		aspect_decided <- true;
+		cur_ind <- 1;
+	}
+
+	reflex decidePlayLook when: role = 'play' and !aspect_decided {
+		icon_folder <- any("play1", "play2");
+		if (icon_folder = "play1") {
+			timer <- play_timer[0];
+			max_frames <- play_frames[0];
+		} else {
+			timer <- play_timer[1];
+			max_frames <- play_frames[1];
+		}
+
+		aspect_decided <- true;
+		cur_ind <- 1;
+	}
+
+	int cur_ind <- 1;
+
+	reflex animation when: aspect_decided and mod(int(time), timer) = 0 {
+		my_icon <- image_file("../includes/" + icon_folder + "/" + role + string(cur_ind) + ".png");
+		cur_ind <- cur_ind + 1;
+		if (cur_ind > max_frames) {
+			cur_ind <- 1;
+		}
+
+	}
+
 	// Display character of the guest.
 	aspect range {
-		if (role = 'guitarist' or role = 'dancer') {
+		if (role = 'band' or role = 'dancer') {
 			draw circle(12) color: any(mycolors) border: #black;
 		} else {
 			draw circle(12) color: rgb(93, 138, 233, 100) border: #black;
