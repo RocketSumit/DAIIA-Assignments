@@ -52,7 +52,7 @@ species Guest skills: [moving, fipa] {
 	float move_speed <- 0.005;
 
 	// stage variables
-	float stage_interaction_distance <- rnd(5.0, 12.0); // to avoid clutter at one place
+	float stage_interaction_distance <- 1.0; //rnd(5.0, 12.0); // to avoid clutter at one place
 	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Visuals 7.Popularity
 	list<point> stage_locs <- nil;
 	list<float> stage_utility <- nil;
@@ -144,7 +144,7 @@ species Guest skills: [moving, fipa] {
 			best_stage <- r.contents[1];
 			best_act <- r.contents[3];
 			target_point <- best_stage_loc;
-			target_point <- {target_point.x + rnd(-5, 5), target_point.y + rnd(-5, 5)};
+			target_point <- {target_point.x + rnd(-10, 10), target_point.y + rnd(5, 10)};
 			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " LOVES CROWD.";
 		} else if (r.contents[0] = 'Leader announcement' and !crowd_mass and best_stage = r.contents[1]) {
 		// Change own stage because I prefer less crowd
@@ -160,7 +160,7 @@ species Guest skills: [moving, fipa] {
 			best_stage <- stages[ind];
 			best_act <- acts[ind];
 			target_point <- best_stage_loc;
-			target_point <- {target_point.x + rnd(-5, 5), target_point.y + rnd(-5, 5)};
+			target_point <- {target_point.x + rnd(-10, 10), target_point.y + rnd(5, 10)};
 			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " HATES CROWD.";
 		}
 
@@ -184,8 +184,8 @@ species Stage skills: [fipa] {
 	list<int> band_frames <- [25, 73];
 	list<int> singer_timer <- [100, 100];
 	list<int> singer_frames <- [97, 109];
-	list<int> play_timer <- [200, 150];
-	list<int> play_frames <- [49, 81];
+	list<int> play_timer <- [150, 150];
+	list<int> play_frames <- [49, 121];
 	int timer <- 0;
 	bool aspect_decided <- false;
 	string icon_folder <- nil;
@@ -270,11 +270,17 @@ species Stage skills: [fipa] {
 
 	int cur_ind <- 1;
 
-	reflex animation when: aspect_decided and mod(int(time), timer) = 0 {
-		my_icon <- image_file("../includes/" + icon_folder + "/" + role + string(cur_ind) + ".png");
-		cur_ind <- cur_ind + 1;
-		if (cur_ind > max_frames) {
-			cur_ind <- 1;
+	reflex playAnimation when: aspect_decided and mod(int(time), timer) = 0 {
+		list<Guest> audience <- Guest at_distance (13);
+		if (length(audience) > 0) {
+			my_icon <- image_file("../includes/" + icon_folder + "/" + role + string(cur_ind) + ".png");
+			cur_ind <- cur_ind + 1;
+			if (cur_ind > max_frames) {
+				cur_ind <- 1;
+			}
+
+		} else {
+			my_icon <- image_file("../includes/icons/" + role + ".png");
 		}
 
 	}
