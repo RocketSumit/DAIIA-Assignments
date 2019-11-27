@@ -52,7 +52,7 @@ species Guest skills: [moving, fipa] {
 	float move_speed <- 0.005;
 
 	// stage variables
-	float stage_interaction_distance <- 1.0; //rnd(5.0, 12.0); // to avoid clutter at one place
+	float stage_interaction_distance <- 0.5; //rnd(5.0, 12.0); // to avoid clutter at one place
 	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Visuals 7.Popularity
 	list<point> stage_locs <- nil;
 	list<float> stage_utility <- nil;
@@ -121,6 +121,7 @@ species Guest skills: [moving, fipa] {
 		}
 
 		target_point <- best_stage_loc;
+		target_point <- {target_point.x + rnd(-10, 10), target_point.y + rnd(8, 10)};
 		best_utility <- max_utility;
 		if (role = "leader") {
 			leader_inform_others <- true; // leader should informs other about his selection
@@ -144,7 +145,7 @@ species Guest skills: [moving, fipa] {
 			best_stage <- r.contents[1];
 			best_act <- r.contents[3];
 			target_point <- best_stage_loc;
-			target_point <- {target_point.x + rnd(-10, 10), target_point.y + rnd(5, 10)};
+			target_point <- {target_point.x + rnd(-10, 10), target_point.y + rnd(8, 10)};
 			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " LOVES CROWD.";
 		} else if (r.contents[0] = 'Leader announcement' and !crowd_mass and best_stage = r.contents[1]) {
 		// Change own stage because I prefer less crowd
@@ -160,7 +161,7 @@ species Guest skills: [moving, fipa] {
 			best_stage <- stages[ind];
 			best_act <- acts[ind];
 			target_point <- best_stage_loc;
-			target_point <- {target_point.x + rnd(-10, 10), target_point.y + rnd(5, 10)};
+			target_point <- {target_point.x + rnd(-10, 10), target_point.y + rnd(8, 10)};
 			write '\t(Time ' + time + '): ' + name + ' My choice: ' + best_stage + " HATES CROWD.";
 		}
 
@@ -269,10 +270,12 @@ species Stage skills: [fipa] {
 	}
 
 	int cur_ind <- 1;
+	bool animation_on <- false;
 
 	reflex playAnimation when: aspect_decided and mod(int(time), timer) = 0 {
 		list<Guest> audience <- Guest at_distance (13);
 		if (length(audience) > 0) {
+			animation_on <- true;
 			my_icon <- image_file("../includes/" + icon_folder + "/" + role + string(cur_ind) + ".png");
 			cur_ind <- cur_ind + 1;
 			if (cur_ind > max_frames) {
@@ -281,13 +284,14 @@ species Stage skills: [fipa] {
 
 		} else {
 			my_icon <- image_file("../includes/icons/" + role + ".png");
+			animation_on <- false;
 		}
 
 	}
 
 	// Display character of the guest.
 	aspect range {
-		if (role = 'band' or role = 'dancer') {
+		if ((role = 'band' or role = 'dancer') and animation_on) {
 			draw circle(12) color: any(mycolors) border: #black;
 		} else {
 			draw circle(12) color: rgb(93, 138, 233, 100) border: #black;
