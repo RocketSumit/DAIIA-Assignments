@@ -1,8 +1,7 @@
 /***
-* Name: auctions
 * Author: sumitpatidar, utkarshkunwar
-* Description: Assignment 2 for DAIIA
-* Tags: Dutch-Auction, FIPA
+* Description: Assignment 3 for DAIIA
+* Tags: Coordination & Utility
 ***/
 model challenge
 
@@ -50,7 +49,7 @@ species Guest skills: [moving, fipa] {
 
 	// stage variables
 	float stage_interaction_distance <- rnd(1.0, 10.0); // to avoid clutter at one place
-	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Visuals 7.Popularity
+	list<float> my_preferences <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Popularity
 	list<point> stage_locs <- nil;
 	list<float> stage_utility <- nil;
 	list<string> stages <- nil;
@@ -70,7 +69,8 @@ species Guest skills: [moving, fipa] {
 	// Utility function
 	float get_utility (list<float> act_attributes) {
 	// Add a more complex function for utility with atleast 6 variables
-		float utility <- act_attributes[0] * my_preferences[0] + act_attributes[1] * my_preferences[1] + act_attributes[2] * my_preferences[2];
+		float
+		utility <- act_attributes[0] * my_preferences[0] + act_attributes[1] * my_preferences[1] + act_attributes[2] * my_preferences[2] + act_attributes[3] * my_preferences[3] + act_attributes[4] * my_preferences[4] + act_attributes[5] * my_preferences[5];
 		return utility;
 	}
 	// Move to target point.
@@ -176,7 +176,7 @@ species Stage skills: [fipa] {
 
 // Stage variables
 	int act_duration <- 20000;
-	list<float> act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
+	list<float> act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Popularity
 
 	// Send invitation to all guests in the festival to join auction.
 	reflex informGuestsAboutActs when: mod(int(time), act_duration) = 0 {
@@ -186,7 +186,7 @@ species Stage skills: [fipa] {
 
 	// Change act attributes once it ends
 	reflex newActAttributes when: mod(int(time), act_duration) = 0 {
-		act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)];
+		act_attributes <- [rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0), rnd(0.0, 1.0)]; //1.Lightshow 2.Speakers 3.Band 4.Seats 5.Food 6.Popularity
 	}
 
 	// Display character of the guest.
